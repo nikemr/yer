@@ -1,11 +1,6 @@
-
-#from pandac.PandaModules import loadPrcFileData
-#loadPrcFileData('', 'load-display tinydisplay')
 import numpy as np
 import sys
 from direct.showbase.ShowBase import ShowBase
-
-#import direct.directbase.DirectStart
 
 from direct.showbase.DirectObject import DirectObject
 from direct.showbase.InputStateGlobal import inputState
@@ -25,6 +20,7 @@ from panda3d.core import WindowProperties
 from panda3d.core import GraphicsOutput
 from panda3d.core import Texture
 from panda3d.core import Camera
+# from panda3d.core import PandaNode
 
 from panda3d.core import FrameBufferProperties
 from panda3d.core import GraphicsBuffer
@@ -45,16 +41,56 @@ class Yer(DirectObject):
         # create a rendering window
         wp=WindowProperties()
         wp.setSize(1000,1000)
-        base.win.requestProperties(wp)        
-        self.setup()
+        base.win.requestProperties(wp) 
+        base.setBackgroundColor(0.1, 0.1, 0.8, 1)
+        base.setFrameRateMeter(True)        
+        base.cam.setPos(0, -20, 4)
+        base.cam.lookAt(0, 0, 0) 
+
+        # Light      ####################################################################################
+        alight = AmbientLight('ambientLight')
+        alight.setColor(Vec4(0.5, 0.5, 0.5, 1))
+        alightNP = render.attachNewNode(alight)
+        dlight = DirectionalLight('directionalLight')
+        dlight.setDirection(Vec3(1, 1, -1))
+        dlight.setColor(Vec4(0.7, 0.7, 0.7, 1))
+        dlightNP = render.attachNewNode(dlight)
+        render.clearLight()
+        render.setLight(alightNP)
+        render.setLight(dlightNP)
+
+
+
+        self.setup() 
         taskMgr.add(self.update, 'updateWorld')
-    
+        self.accept('f5', self.doScreenshot)
+        self.accept('f3', self.toggleDebug)
+
+        inputState.watchWithModifiers('forward', 'w')
+        inputState.watchWithModifiers('left', 'a')
+        inputState.watchWithModifiers('reverse', 's')
+        inputState.watchWithModifiers('right', 'd')
+        inputState.watchWithModifiers('turnLeft', 'q')
+        inputState.watchWithModifiers('turnRight', 'e')
+
+        print(self.worldNP.getChildren())
+        print(self.boxNP.getChildren())
+        print(render.getChildren())
+        print(base.camList)
+        print(self.worldNP.findAllMatches("*"))
+     
+     
+    def toggleDebug(self):
+        if self.debugNP.isHidden():
+            self.debugNP.show()
+        else:
+            self.debugNP.hide()
+
 
     def setup(self):
-        # create a world nodepath
+        
+        ## Bullet World #################################################################################
         self.worldNP = render.attachNewNode('World')
-
-        # World 
         self.debugNP = self.worldNP.attachNewNode(BulletDebugNode('Debug'))
         self.debugNP.show()
         self.debugNP.node().showNormals(True)
@@ -64,7 +100,7 @@ class Yer(DirectObject):
         self.world.setDebugNode(self.debugNP.node())
 
         
-        # Heightfield (static)
+        # Heightfield (static) ##########################################################################
         height = 12.0
         img = PNMImage()
         # couldn't read the files at fist and asked help from the forum. That's why it looks weird.
@@ -73,43 +109,36 @@ class Yer(DirectObject):
         shape.setUseDiamondSubdivision(True)
         np = self.worldNP.attachNewNode(BulletRigidBodyNode('Heightfield'))
         np.node().addShape(shape)
-        np.setPos(0, 0, 0)
-
-        #I put this
+        np.setPos(0, 0, 0)        
         np.node().setFriction(1)
-
         np.setCollideMask(BitMask32.allOn())
-
         self.world.attachRigidBody(np.node())
-
         self.hf = np.node() # To enable/disable debug visualisation
-
         self.terrain = GeoMipTerrain('terrain')
-        self.terrain.setHeightfield(img)
-    
+        self.terrain.setHeightfield(img)    
         self.terrain.setBlockSize(32)
         #I don't want any optimization that's why I commented that
         #self.terrain.setNear(50)
         #self.terrain.setFar(100)
-        #self.terrain.setFocalPoint(base.camera)
-    
+        #self.terrain.setFocalPoint(base.camera)    
         rootNP = self.terrain.getRoot()
         rootNP.reparentTo(render)
         rootNP.setSz(height)
-
         offset = img.getXSize() / 2.0 - 0.5
-        rootNP.setPos(-offset, -offset, -height / 2.0)
-    
+        rootNP.setPos(-offset, -offset, -height / 2.0)    
         self.terrain.generate()
-        # Box (dynamic) 
 
-        for r in range(12):
+        
+        num_agents=5
+
+        # Box (dynamic) ################################################################################# 
+        for r in range(num_agents):
 
             shape = BulletBoxShape(Vec3(0.5, 0.5, 0.5))
             np = self.worldNP.attachNewNode(BulletRigidBodyNode('Box'))
             np.node().setMass(5)
             np.node().addShape(shape)
-            np.setPos(r/2, r,3*r)
+            np.setPos(r/2, r, 1.5)
             np.set_scale(1)
             np.setCollideMask(BitMask32.allOn())
             self.world.attachRigidBody(np.node())
@@ -118,10 +147,62 @@ class Yer(DirectObject):
             self.boxNP = np # For applying force & torque
             visualNP = loader.loadModel('models/mox.egg')
             visualNP.clearModelNodes()
-            visualNP.reparentTo(self.boxNP)   
+            visualNP.reparentTo(self.boxNP)
+
+            
+
+         
+        # Buffers and Cameras ###########################################################################
+        fb_prop = FrameBufferProperties()
+        # Request 8 RGB bits, no alpha bits, and a depth buffer.
+        fb_prop.setRgbColor(True)
+        fb_prop.setRgbaBits(8, 8, 8, 0)
+        fb_prop.setDepthBits(16)
+        # Create a WindowProperties object set to 256x256 size.
+        win_prop = WindowProperties.size(256, 256)
+        flags = GraphicsPipe.BF_refuse_window
+        self.buffs=[]
+        self.cams=[]
+        for buf in range(0,num_agents):
+            self.buffs.append(base.graphicsEngine.make_output(base.pipe,"My Buffer"+str(buf+1), -100, fb_prop, win_prop, flags, base.win.getGsg(), base.win))
+            self.cams.append(base.makeCamera(self.buffs[buf],sort=0,displayRegion=(0.0, 1, 0, 1),camName="cam"+str(buf+1)))
+            self.cams[buf].reparentTo(self.worldNP.findAllMatches("Box")[buf])
+
+    def doScreenshot(self):
+        base.screenshot('Bullet')
+        # nice
+        t=0
+        for buf in self.buffs:
+            buf.getActiveDisplayRegion(0).saveScreenshotDefault('MYBUFFER'+str(t))
+            t+=1
+            #my_output=buf.getActiveDisplayRegion(0).getScreenshot()        
+            #numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32)
+            #print(numpy_image_data)
+    
+    def processInput(self, dt):
+        force = Vec3(0, 0, 0)
+        torque = Vec3(0, 0, 0)
+
+        if inputState.isSet('forward'): force.setY( 1.0)
+        if inputState.isSet('reverse'): force.setY(-1.0)
+        if inputState.isSet('left'):    force.setX(-1.0)
+        if inputState.isSet('right'):   force.setX( 1.0)
+        if inputState.isSet('turnLeft'):  torque.setZ( 1.0)
+        if inputState.isSet('turnRight'): torque.setZ(-1.0)
+
+        force *= 100.0
+        
+        torque *= 10.0
+        for liste in self.worldNP.findAllMatches("Box"):
+            force = render.getRelativeVector(liste, force)
+            liste.node().setActive(True)
+            liste.node().applyCentralForce(force)
+            liste.node().applyTorque(torque)
+
+
     def update(self, task):
         dt = globalClock.getDt()
-        #self.processInput(dt)
+        self.processInput(dt)
         self.world.doPhysics(dt)
         return task.cont
     
