@@ -1,12 +1,12 @@
 
-
+#from pandac.PandaModules import loadPrcFileData
+#loadPrcFileData('', 'load-display tinydisplay')
 import numpy as np
-
 import sys
+from direct.showbase.ShowBase import ShowBase
 
-import ShowBasebase=ShowBase()
+#import direct.directbase.DirectStart
 
-from direct.showbase.ShowBase 
 from direct.showbase.DirectObject import DirectObject
 from direct.showbase.InputStateGlobal import inputState
 
@@ -25,9 +25,11 @@ from panda3d.core import WindowProperties
 from panda3d.core import GraphicsOutput
 from panda3d.core import Texture
 from panda3d.core import Camera
+
 from panda3d.core import FrameBufferProperties
 from panda3d.core import GraphicsBuffer
 from panda3d.core import GraphicsPipe
+
 
 from panda3d.bullet import BulletWorld
 from panda3d.bullet import BulletPlaneShape
@@ -37,6 +39,7 @@ from panda3d.bullet import BulletDebugNode
 from panda3d.bullet import BulletHeightfieldShape
 from panda3d.bullet import ZUp
 
+base=ShowBase()
 class Yer(DirectObject):
     def __init__(self):
         # create a rendering window
@@ -70,13 +73,20 @@ class Yer(DirectObject):
         shape.setUseDiamondSubdivision(True)
         np = self.worldNP.attachNewNode(BulletRigidBodyNode('Heightfield'))
         np.node().addShape(shape)
-        np.setPos(0, 0, 0)        
+        np.setPos(0, 0, 0)
+
+        #I put this
         np.node().setFriction(1)
+
         np.setCollideMask(BitMask32.allOn())
+
         self.world.attachRigidBody(np.node())
+
         self.hf = np.node() # To enable/disable debug visualisation
+
         self.terrain = GeoMipTerrain('terrain')
-        self.terrain.setHeightfield(img)    
+        self.terrain.setHeightfield(img)
+    
         self.terrain.setBlockSize(32)
         #I don't want any optimization that's why I commented that
         #self.terrain.setNear(50)
@@ -86,6 +96,7 @@ class Yer(DirectObject):
         rootNP = self.terrain.getRoot()
         rootNP.reparentTo(render)
         rootNP.setSz(height)
+
         offset = img.getXSize() / 2.0 - 0.5
         rootNP.setPos(-offset, -offset, -height / 2.0)
     
@@ -108,7 +119,6 @@ class Yer(DirectObject):
             visualNP = loader.loadModel('models/mox.egg')
             visualNP.clearModelNodes()
             visualNP.reparentTo(self.boxNP)   
-    
     def update(self, task):
         dt = globalClock.getDt()
         #self.processInput(dt)
