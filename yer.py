@@ -34,6 +34,7 @@ from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletDebugNode
 from panda3d.bullet import BulletHeightfieldShape
 from panda3d.bullet import ZUp
+from panda3d.bullet import BulletCharacterControllerNode
 
 base=ShowBase()
 class Yer(DirectObject):
@@ -73,11 +74,7 @@ class Yer(DirectObject):
         inputState.watchWithModifiers('turnLeft', 'q')
         inputState.watchWithModifiers('turnRight', 'e')
 
-        print(self.worldNP.getChildren())
-        print(self.boxNP.getChildren())
-        print(render.getChildren())
-        print(base.camList)
-        print(self.worldNP.findAllMatches("*"))
+        
      
      
     def toggleDebug(self):
@@ -182,6 +179,8 @@ class Yer(DirectObject):
     def processInput(self, dt):
         force = Vec3(0, 0, 0)
         torque = Vec3(0, 0, 0)
+        
+        
 
         if inputState.isSet('forward'): force.setY( 1.0)
         if inputState.isSet('reverse'): force.setY(-1.0)
@@ -198,18 +197,42 @@ class Yer(DirectObject):
             liste.node().setActive(True)
             liste.node().applyCentralForce(force)
             liste.node().applyTorque(torque)
+            
+        other=self.worldNP.find("Box_")
+        
+        xx=np.random.randint(-1,2)
+        yy=np.random.randint(-1,2)
+        force_=Vec3(xx,yy,0)
+        force_ *= -100.0
+        other.node().setActive(True)
+        other.node().applyCentralForce(force_)
+        other.node().applyTorque(torque)
+        
+
 
 
     def update(self, task):
         dt = globalClock.getDt()
         self.processInput(dt)
         self.world.doPhysics(dt)
+        
         return task.cont
 
 class Diri(Yer):
     def __init__(self):
+        print(self)
+        print("aaaaaaaaaaaaaaaaa")
+        fb_prop = FrameBufferProperties()
+        # Request 8 RGB bits, no alpha bits, and a depth buffer.
+        fb_prop.setRgbColor(True)
+        fb_prop.setRgbaBits(8, 8, 8, 0)
+        fb_prop.setDepthBits(16)
+        # Create a WindowProperties object set to 256x256 size.
+        win_prop = WindowProperties.size(256, 256)
+        flags = GraphicsPipe.BF_require_window  
+
         shape = BulletBoxShape(Vec3(0.5, 0.5, 0.5))
-        np = yer.worldNP.attachNewNode(BulletRigidBodyNode('Box'))
+        np = yer.worldNP.attachNewNode(BulletRigidBodyNode('Box_'))
         np.node().setMass(5)
         np.node().addShape(shape)
         np.setPos(2, 2, 10)
@@ -218,15 +241,20 @@ class Diri(Yer):
         yer.world.attachRigidBody(np.node())
         #Friction for the Box
         np.node().setFriction(0.5)
-        yer.boxNP = np # For applying force & torque
+        yer.box_NP = np # For applying force & torque
         visualNP = loader.loadModel('models/mox.egg')
         visualNP.clearModelNodes()
-        visualNP.reparentTo(yer.boxNP)
-        
-        
-
-
+        visualNP.reparentTo(yer.box_NP)
+        self.buffer=base.graphicsEngine.make_output(base.pipe,"diri Buffer", -100, fb_prop, win_prop, flags, base.win.getGsg(), base.win)
+        self.cam=base.makeCamera(self.buffer,sort=6,displayRegion=(0.0, 1, 0, 1),camName="diri cam")
+        self.cam.reparentTo(visualNP)
 
 yer = Yer()
 diri=Diri()
+print(yer.worldNP.getChildren())
+print(yer.boxNP.getChildren())
+print("render ALL Children")
+print(render.getChildren())
+print(base.camList)
+print(yer.worldNP.findAllMatches("*"))
 base.run()           
