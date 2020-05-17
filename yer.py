@@ -206,14 +206,16 @@ class Yer(DirectObject):
     def update(self, task):
         dt = globalClock.getDt()
         self.processInput(dt)
-        self.world.doPhysics(dt)
-        
+        self.world.doPhysics(dt)        
         return task.cont
+
+
 
 class Diri(Yer):
     def __init__(self):
+        print("I'am:")
         print(self)
-        print("aaaaaaaaaaaaaaaaa")
+        
         fb_prop = FrameBufferProperties()
         # Request 8 RGB bits, no alpha bits, and a depth buffer.
         fb_prop.setRgbColor(True)
