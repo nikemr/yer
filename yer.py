@@ -110,7 +110,7 @@ class Yer(DirectObject):
         np = self.worldNP.attachNewNode(BulletRigidBodyNode('Heightfield'))
         np.node().addShape(shape)
         np.setPos(0, 0, 0)        
-        np.node().setFriction(1)
+        np.node().setFriction(.5)
         np.setCollideMask(BitMask32.allOn())
         self.world.attachRigidBody(np.node())
         self.hf = np.node() # To enable/disable debug visualisation
@@ -192,7 +192,7 @@ class Yer(DirectObject):
 
         force *= 100.0
         
-        torque *= 10.0
+        torque *= 20.0
         for liste in self.worldNP.findAllMatches("Box"):
             force = render.getRelativeVector(liste, force)
             liste.node().setActive(True)
@@ -205,6 +205,28 @@ class Yer(DirectObject):
         self.processInput(dt)
         self.world.doPhysics(dt)
         return task.cont
-    
+
+class Diri(Yer):
+    def __init__(self):
+        shape = BulletBoxShape(Vec3(0.5, 0.5, 0.5))
+        np = yer.worldNP.attachNewNode(BulletRigidBodyNode('Box'))
+        np.node().setMass(5)
+        np.node().addShape(shape)
+        np.setPos(2, 2, 10)
+        np.set_scale(1)
+        np.setCollideMask(BitMask32.allOn())
+        yer.world.attachRigidBody(np.node())
+        #Friction for the Box
+        np.node().setFriction(0.5)
+        yer.boxNP = np # For applying force & torque
+        visualNP = loader.loadModel('models/mox.egg')
+        visualNP.clearModelNodes()
+        visualNP.reparentTo(yer.boxNP)
+        
+        
+
+
+
 yer = Yer()
+diri=Diri()
 base.run()           
