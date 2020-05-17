@@ -198,16 +198,7 @@ class Yer(DirectObject):
             liste.node().applyCentralForce(force)
             liste.node().applyTorque(torque)
             
-        other=self.worldNP.find("Box_")
-        force_ = render.getRelativeVector(liste, force)
-        xx=np.random.randint(-1,2)
-        yy=np.random.randint(-1,2)
-        force_=Vec3(xx,yy,0)
-        force_ *= 200.0
-        force_ = render.getRelativeVector(other, force_)
-        other.node().setActive(True)
-        other.node().applyCentralForce(force_)
-        other.node().applyTorque(torque)
+        
         
 
 
@@ -230,28 +221,49 @@ class Diri(Yer):
         fb_prop.setDepthBits(16)
         # Create a WindowProperties object set to 256x256 size.
         win_prop = WindowProperties.size(256, 256)
-        flags = GraphicsPipe.BF_require_window  
+        flags = GraphicsPipe.BF_refuse_window
 
         shape = BulletBoxShape(Vec3(0.5, 0.5, 0.5))
-        np = yer.worldNP.attachNewNode(BulletRigidBodyNode('Box_'))
-        np.node().setMass(5)
-        np.node().addShape(shape)
-        np.setPos(2, 2, 10)
-        np.set_scale(1)
-        np.setCollideMask(BitMask32.allOn())
-        yer.world.attachRigidBody(np.node())
+        nopa = yer.worldNP.attachNewNode(BulletRigidBodyNode('Box_'))
+        self.box_NP = nopa 
+        self.box_NP.node().setMass(5)
+        self.box_NP.node().addShape(shape)
+        self.box_NP.setPos(np.random.randint(2,10), np.random.randint(2,10), np.random.randint(2,10))
+        self.box_NP.set_scale(1)
+        self.box_NP.setCollideMask(BitMask32.allOn())
+        yer.world.attachRigidBody(self.box_NP.node())
         #Friction for the Box
-        np.node().setFriction(0.5)
-        yer.box_NP = np # For applying force & torque
+        self.box_NP.node().setFriction(0.5)
+        
         visualNP = loader.loadModel('models/mox.egg')
         visualNP.clearModelNodes()
-        visualNP.reparentTo(yer.box_NP)
+        visualNP.reparentTo(self.box_NP)
         self.buffer=base.graphicsEngine.make_output(base.pipe,"diri Buffer", -100, fb_prop, win_prop, flags, base.win.getGsg(), base.win)
         self.cam=base.makeCamera(self.buffer,sort=6,displayRegion=(0.0, 1, 0, 1),camName="diri cam")
         self.cam.reparentTo(visualNP)
+        taskMgr.add(self.engine, 'updateAgent')
+        print("self.box_NP")
+        print(self.box_NP)
+
+        
+    def engine(self, task):
+        dt = globalClock.getDt()
+        xx=np.random.randint(-1,2)
+        yy=np.random.randint(-1,2)
+        force_=Vec3(xx,yy,0)
+        force_ *= 150.0
+        force_ = render.getRelativeVector(self.box_NP, force_)
+        self.box_NP.node().setActive(True)
+        self.box_NP.node().applyCentralForce(force_)
+        return task.cont
+
 
 yer = Yer()
-diri=Diri()
+diriler=[]
+for i in range(7):
+    diriler.append("diri"+str(i))
+    diriler[i]=Diri()
+
 print(yer.worldNP.getChildren())
 print(yer.boxNP.getChildren())
 print("render ALL Children")
