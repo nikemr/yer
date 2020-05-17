@@ -199,11 +199,12 @@ class Yer(DirectObject):
             liste.node().applyTorque(torque)
             
         other=self.worldNP.find("Box_")
-        
+        force_ = render.getRelativeVector(liste, force)
         xx=np.random.randint(-1,2)
         yy=np.random.randint(-1,2)
         force_=Vec3(xx,yy,0)
-        force_ *= -100.0
+        force_ *= 200.0
+        force_ = render.getRelativeVector(other, force_)
         other.node().setActive(True)
         other.node().applyCentralForce(force_)
         other.node().applyTorque(torque)
