@@ -20,6 +20,7 @@ from panda3d.core import WindowProperties
 from panda3d.core import GraphicsOutput
 from panda3d.core import Texture
 from panda3d.core import Camera
+import gltf
 # from panda3d.core import PandaNode
 
 from panda3d.core import FrameBufferProperties
@@ -39,6 +40,7 @@ from panda3d.bullet import BulletCharacterControllerNode
 base=ShowBase()
 class Yer(DirectObject):
     def __init__(self):
+        gltf.patch_loader(base.loader)
         # create a rendering window
         wp=WindowProperties()
         wp.setSize(1000,1000)
@@ -49,17 +51,18 @@ class Yer(DirectObject):
         base.cam.lookAt(0, 0, 0) 
 
         # Light      ####################################################################################
+        
         alight = AmbientLight('ambientLight')
         alight.setColor(Vec4(0.5, 0.5, 0.5, 1))
         alightNP = render.attachNewNode(alight)
         dlight = DirectionalLight('directionalLight')
         dlight.setDirection(Vec3(1, 1, -1))
-        dlight.setColor(Vec4(0.7, 0.7, 0.7, 1))
+        dlight.setColor(Vec4(0.8, 0.8, 0.8, 1))
         dlightNP = render.attachNewNode(dlight)
         render.clearLight()
         render.setLight(alightNP)
         render.setLight(dlightNP)
-
+        #render.setShaderAuto()
 
 
         self.setup() 
@@ -126,23 +129,28 @@ class Yer(DirectObject):
         self.terrain.generate()
 
         
-        num_agents=5
+        num_agents=1
 
         # Box (dynamic) ################################################################################# 
         for r in range(num_agents):
 
             shape = BulletBoxShape(Vec3(0.5, 0.5, 0.5))
-            np = self.worldNP.attachNewNode(BulletRigidBodyNode('Box'))
+            np = self.worldNP.attachNewNode(BulletRigidBodyNode('Box'))            
             np.node().setMass(5)
             np.node().addShape(shape)
-            np.setPos(r/2, r, 1.5)
+            np.setPos(5, 5, 2)
             np.set_scale(1)
             np.setCollideMask(BitMask32.allOn())
             self.world.attachRigidBody(np.node())
             #Friction for the Box
             np.node().setFriction(0.5)
             self.boxNP = np # For applying force & torque
-            visualNP = loader.loadModel('models/mox.egg')
+            
+            visualNP = loader.loadModel('models/lilly.gltf')
+            visualNP.set_scale(.5)
+            mats=visualNP.findAllMaterials()
+            mats[0].clearBaseColor()
+            
             visualNP.clearModelNodes()
             visualNP.reparentTo(self.boxNP)
 
@@ -218,7 +226,8 @@ class Diri(Yer):
         
         fb_prop = FrameBufferProperties()
         # Request 8 RGB bits, no alpha bits, and a depth buffer.
-        fb_prop.setRgbColor(True)
+        # fb_prop.setRgbColor(True)
+        fb_prop.setSrgbColor(True)
         fb_prop.setRgbaBits(8, 8, 8, 0)
         fb_prop.setDepthBits(16)
         # Create a WindowProperties object set to 256x256 size.
@@ -230,15 +239,22 @@ class Diri(Yer):
         self.box_NP = nopa 
         self.box_NP.node().setMass(5)
         self.box_NP.node().addShape(shape)
-        self.box_NP.setPos(np.random.randint(2,10), np.random.randint(2,10), np.random.randint(2,10))
+        self.box_NP.setPos(np.random.randint(1,10), np.random.randint(1,10),np.random.randint(1,3))
         self.box_NP.set_scale(1)
         self.box_NP.setCollideMask(BitMask32.allOn())
         yer.world.attachRigidBody(self.box_NP.node())
         #Friction for the Box
         self.box_NP.node().setFriction(0.5)
         
-        visualNP = loader.loadModel('models/mox.egg')
-        visualNP.clearModelNodes()
+        # visualNP = loader.loadModel('models/mox.egg')
+        visualNP = loader.loadModel('models/lilly.bam')
+        visualNP.set_scale(.5)
+        mats=visualNP.findAllMaterials()
+        mats[0].clearBaseColor()
+        
+        
+        
+        
         visualNP.reparentTo(self.box_NP)
         self.buffer=base.graphicsEngine.make_output(base.pipe,"diri Buffer", -100, fb_prop, win_prop, flags, base.win.getGsg(), base.win)
         self.cam=base.makeCamera(self.buffer,sort=6,displayRegion=(0.0, 1, 0, 1),camName="diri cam")
