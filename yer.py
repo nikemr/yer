@@ -20,6 +20,7 @@ from panda3d.core import WindowProperties
 from panda3d.core import GraphicsOutput
 from panda3d.core import Texture
 from panda3d.core import Camera
+from panda3d.core import PerspectiveLens
 import gltf
 # from panda3d.core import PandaNode
 
@@ -27,10 +28,11 @@ from panda3d.core import FrameBufferProperties
 from panda3d.core import GraphicsBuffer
 from panda3d.core import GraphicsPipe
 
-
 from panda3d.bullet import BulletWorld
 from panda3d.bullet import BulletPlaneShape
 from panda3d.bullet import BulletBoxShape
+from panda3d.bullet import BulletCapsuleShape
+from panda3d.bullet import BulletSphereShape
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletDebugNode
 from panda3d.bullet import BulletHeightfieldShape
@@ -47,8 +49,10 @@ class Yer(DirectObject):
         base.win.requestProperties(wp) 
         base.setBackgroundColor(0.1, 0.1, 0.8, 1)
         base.setFrameRateMeter(True)        
-        base.cam.setPos(0, -20, 4)
+        base.cam.setPos(0, -80, 50)
         base.cam.lookAt(0, 0, 0) 
+        base.disableMouse()
+        base.useTrackball()
 
         # Light      ####################################################################################
         
@@ -101,7 +105,7 @@ class Yer(DirectObject):
 
         
         # Heightfield (static) ##########################################################################
-        height = 12.0
+        height = 6.0
         img = PNMImage()
         # couldn't read the files at fist and asked help from the forum. That's why it looks weird.
         assert img.read(getModelPath().findFile('models/elevation2.png')), "Failed to read!"
@@ -110,6 +114,7 @@ class Yer(DirectObject):
         np = self.worldNP.attachNewNode(BulletRigidBodyNode('Heightfield'))
         np.node().addShape(shape)
         np.setPos(0, 0, 0)        
+        np.set_scale(2)
         np.node().setFriction(.5)
         np.setCollideMask(BitMask32.allOn())
         self.world.attachRigidBody(np.node())
@@ -123,9 +128,11 @@ class Yer(DirectObject):
         #self.terrain.setFocalPoint(base.camera)    
         rootNP = self.terrain.getRoot()
         rootNP.reparentTo(render)
-        rootNP.setSz(height)
+        rootNP.setSz(height*2)
+        rootNP.setSx(2)
+        rootNP.setSy(2)
         offset = img.getXSize() / 2.0 - 0.5
-        rootNP.setPos(-offset, -offset, -height / 2.0)    
+        rootNP.setPos(-offset*2, -offset*2, -height )    
         self.terrain.generate()
 
         
@@ -231,54 +238,77 @@ class Diri(Yer):
         fb_prop.setRgbaBits(8, 8, 8, 0)
         fb_prop.setDepthBits(16)
         # Create a WindowProperties object set to 256x256 size.
-        win_prop = WindowProperties.size(256, 256)
+        win_prop = WindowProperties.size(512, 512)
         flags = GraphicsPipe.BF_refuse_window
+        
+        
 
-        shape = BulletBoxShape(Vec3(0.5, 0.5, 0.5))
+        shape = BulletCapsuleShape(.35, 1, ZUp)
+        shape2 = BulletCapsuleShape(.35, 1, ZUp)
+        head = BulletSphereShape(.3)
+        # shape = BulletBoxShape(Vec3(0.5, 0.5, 0.5))
         nopa = yer.worldNP.attachNewNode(BulletRigidBodyNode('Box_'))
+        
         self.box_NP = nopa 
-        self.box_NP.node().setMass(5)
-        self.box_NP.node().addShape(shape)
-        self.box_NP.setPos(np.random.randint(1,10), np.random.randint(1,10),np.random.randint(1,3))
+        
+        self.box_NP.node().setMass(3)
+        self.box_NP.node().addShape(shape,TransformState.makePosHpr(Point3(-.35, 0, 0),Point3(90, 0, 90)))
+        self.box_NP.node().addShape(shape2,TransformState.makePosHpr(Point3(.35, 0, 0),Point3(90,0, 90)))
+        self.box_NP.node().addShape(head,TransformState.makePos(Point3(0, .5, 1)))
+
+        self.box_NP.setPos(np.random.randint(-50,50), np.random.randint(-50,50),np.random.randint(1,7))
+        
         self.box_NP.set_scale(1)
+
         self.box_NP.setCollideMask(BitMask32.allOn())
         yer.world.attachRigidBody(self.box_NP.node())
         #Friction for the Box
         self.box_NP.node().setFriction(0.5)
         
+
+        lens = PerspectiveLens()
         # visualNP = loader.loadModel('models/mox.egg')
         visualNP = loader.loadModel('models/lilly.bam')
         visualNP.set_scale(.5)
+        visualNP.setPos(0,0,-.5)
+        visualNP.setHpr(180,0,0)
+
         mats=visualNP.findAllMaterials()
         mats[0].clearBaseColor()
-        
-        
-        
-        
+
         visualNP.reparentTo(self.box_NP)
         self.buffer=base.graphicsEngine.make_output(base.pipe,"diri Buffer", -100, fb_prop, win_prop, flags, base.win.getGsg(), base.win)
-        self.cam=base.makeCamera(self.buffer,sort=6,displayRegion=(0.0, 1, 0, 1),camName="diri cam")
-        self.cam.reparentTo(visualNP)
+        self.cam=base.makeCamera(self.buffer,sort=6,displayRegion=(0.0, 1, 0, 1),camName="diri_cam")
+        self.cam.setHpr(0,0,0)
+        self.cam.setPos(0,0,1)
+        self.cam.node().setLens(lens)
+        lens.setFov(100)
+        #self.setFov(100)
+        self.cam.reparentTo(self.box_NP)
+
         taskMgr.add(self.engine, 'updateAgent')
-        print("self.box_NP")
-        print(self.box_NP)
+        
 
         
     def engine(self, task):
         dt = globalClock.getDt()
-        xx=np.random.randint(-1,2)
-        yy=np.random.randint(-1,2)
-        force_=Vec3(xx,yy,0)
-        force_ *= 150.0
+        
+        yy2=np.random.randint(-120,60)
+        yy=np.random.randint(-60,120)
+        force_=Vec3(0,yy,0)
+        force=Vec3(0,yy2,0)
         force_ = render.getRelativeVector(self.box_NP, force_)
+        force = render.getRelativeVector(self.box_NP, force)
         self.box_NP.node().setActive(True)
-        self.box_NP.node().applyCentralForce(force_)
+        self.box_NP.node().applyForce(force_,Vec3(-.35, -.5, .3))
+        self.box_NP.node().applyForce(force,Vec3(.35, -.5, .3))
+        #self.box_NP.node().applyCentralForce(force_)
         return task.cont
 
 
 yer = Yer()
 diriler=[]
-for i in range(7):
+for i in range(50):
     diriler.append("diri"+str(i))
     diriler[i]=Diri()
 
