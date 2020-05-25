@@ -1,4 +1,8 @@
+
+
+
 import numpy as np
+
 import sys
 from direct.showbase.ShowBase import ShowBase
 
@@ -38,6 +42,11 @@ from panda3d.bullet import BulletDebugNode
 from panda3d.bullet import BulletHeightfieldShape
 from panda3d.bullet import ZUp
 from panda3d.bullet import BulletCharacterControllerNode
+
+import lilly_torch
+
+
+
 
 base=ShowBase()
 class Yer(DirectObject):
@@ -190,6 +199,8 @@ class Yer(DirectObject):
             #my_output=buf.getActiveDisplayRegion(0).getScreenshot()        
             #numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32)
             #print(numpy_image_data)
+            predict_that=lilly_torch.VGG16_predict("MYBUFFER.jpg")
+            print(predict_that)   
     
     def processInput(self, dt):
         force = Vec3(0, 0, 0)
@@ -238,8 +249,8 @@ class Diri(Yer):
         fb_prop.setRgbaBits(8, 8, 8, 0)
         fb_prop.setDepthBits(16)
         # Create a WindowProperties object set to 256x256 size.
-        win_prop = WindowProperties.size(512, 512)
-        flags = GraphicsPipe.BF_refuse_window
+        win_prop = WindowProperties.size(224, 224)
+        flags = GraphicsPipe.BF_require_window
         
         
 
@@ -308,7 +319,7 @@ class Diri(Yer):
 
 yer = Yer()
 diriler=[]
-for i in range(50):
+for i in range(2):
     diriler.append("diri"+str(i))
     diriler[i]=Diri()
 
