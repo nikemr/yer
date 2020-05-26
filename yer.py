@@ -1,5 +1,5 @@
 
-
+import torch
 
 import numpy as np
 
@@ -42,8 +42,11 @@ from panda3d.bullet import BulletDebugNode
 from panda3d.bullet import BulletHeightfieldShape
 from panda3d.bullet import ZUp
 from panda3d.bullet import BulletCharacterControllerNode
-
+from panda3d.core import GraphicsEngine
 import lilly_torch
+import time
+
+
 
 
 
@@ -91,6 +94,7 @@ class Yer(DirectObject):
         inputState.watchWithModifiers('turnRight', 'e')
 
         
+
      
      
     def toggleDebug(self):
@@ -180,7 +184,7 @@ class Yer(DirectObject):
         fb_prop.setRgbaBits(8, 8, 8, 0)
         fb_prop.setDepthBits(16)
         # Create a WindowProperties object set to 256x256 size.
-        win_prop = WindowProperties.size(256, 256)
+        win_prop = WindowProperties.size(240, 240)
         flags = GraphicsPipe.BF_refuse_window
         self.buffs=[]
         self.cams=[]
@@ -188,6 +192,10 @@ class Yer(DirectObject):
             self.buffs.append(base.graphicsEngine.make_output(base.pipe,"My Buffer"+str(buf+1), -100, fb_prop, win_prop, flags, base.win.getGsg(), base.win))
             self.cams.append(base.makeCamera(self.buffs[buf],sort=0,displayRegion=(0.0, 1, 0, 1),camName="cam"+str(buf+1)))
             self.cams[buf].reparentTo(self.worldNP.findAllMatches("Box")[buf])
+
+
+
+
 
     def doScreenshot(self):
         base.screenshot('Bullet')
@@ -199,8 +207,8 @@ class Yer(DirectObject):
             #my_output=buf.getActiveDisplayRegion(0).getScreenshot()        
             #numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32)
             #print(numpy_image_data)
-            predict_that=lilly_torch.VGG16_predict("MYBUFFER.jpg")
-            print(predict_that)   
+            #predict_that=lilly_torch.VGG16_predict("MYBUFFER.jpg")
+            #print(predict_that)   
     
     def processInput(self, dt):
         force = Vec3(0, 0, 0)
@@ -232,16 +240,35 @@ class Yer(DirectObject):
     def update(self, task):
         dt = globalClock.getDt()
         self.processInput(dt)
-        self.world.doPhysics(dt)        
+        self.world.doPhysics(dt) 
+        simdi=time.time()
+
+
+        if len(diriler)==0:
+            diri=Diri()
+            diriler.append(diri) 
+        if len(diriler)<40:            
+            if simdi-diriler[-1].start>0.20:
+                diri=Diri()
+                diriler.append(diri)
+
+        for i in diriler:            
+            i.shot()   
+
         return task.cont
 
-
+yer = Yer()
 
 class Diri(Yer):
     def __init__(self):
-        print("I'am:")
-        print(self)
+
         
+        
+        # Lilly Brain
+        self.lilly_torch=lilly_torch
+        self.start=time.time()
+        self.yy=0
+        self.yy2=0
         fb_prop = FrameBufferProperties()
         # Request 8 RGB bits, no alpha bits, and a depth buffer.
         # fb_prop.setRgbColor(True)
@@ -249,8 +276,8 @@ class Diri(Yer):
         fb_prop.setRgbaBits(8, 8, 8, 0)
         fb_prop.setDepthBits(16)
         # Create a WindowProperties object set to 256x256 size.
-        win_prop = WindowProperties.size(224, 224)
-        flags = GraphicsPipe.BF_require_window
+        win_prop = WindowProperties.size(240, 240)
+        flags = GraphicsPipe.BF_refuse_window
         
         
 
@@ -267,7 +294,7 @@ class Diri(Yer):
         self.box_NP.node().addShape(shape2,TransformState.makePosHpr(Point3(.35, 0, 0),Point3(90,0, 90)))
         self.box_NP.node().addShape(head,TransformState.makePos(Point3(0, .5, 1)))
 
-        self.box_NP.setPos(np.random.randint(-50,50), np.random.randint(-50,50),np.random.randint(1,7))
+        self.box_NP.setPos(np.random.randint(-30,30), np.random.randint(-30,30),np.random.randint(2,7))
         
         self.box_NP.set_scale(1)
 
@@ -297,31 +324,72 @@ class Diri(Yer):
         #self.setFov(100)
         self.cam.reparentTo(self.box_NP)
 
-        taskMgr.add(self.engine, 'updateAgent')
+        
+
+
+       
+       # taskMgr.add(self.engine, 'updateAgent')
         
 
         
-    def engine(self, task):
-        dt = globalClock.getDt()
+    # def engine(self, task):
+    #     dt = globalClock.getDt()
+    #     # self.shot()       
+             
+    #     return task.cont
+
+    def shot(self):
         
-        yy2=np.random.randint(-120,60)
-        yy=np.random.randint(-60,120)
-        force_=Vec3(0,yy,0)
-        force=Vec3(0,yy2,0)
-        force_ = render.getRelativeVector(self.box_NP, force_)
-        force = render.getRelativeVector(self.box_NP, force)
-        self.box_NP.node().setActive(True)
-        self.box_NP.node().applyForce(force_,Vec3(-.35, -.5, .3))
-        self.box_NP.node().applyForce(force,Vec3(.35, -.5, .3))
-        #self.box_NP.node().applyCentralForce(force_)
-        return task.cont
+        simdi=time.time()        
+        self.fark=simdi-self.start
+        # for i in diriler:
+        #     if i==self:
+        #         print(self.shot)
+        #         print(time.time())    
+            
+        
+            
+
+        if self.fark>.6:
+
+            self.start=time.time()
+            try:
+                my_output=self.buffer.getActiveDisplayRegion(0).getScreenshot()        
+                numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32)
+            except:
+                base.graphicsEngine.renderFrame()
+                print("except")
+                my_output=self.buffer.getActiveDisplayRegion(0).getScreenshot()        
+                numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32) 
+            prediction=self.lilly_torch.VGG16_predict(numpy_image_data)           
+            self.yy=prediction[0][0]
+            self.yy2=prediction[0][1]
+        
+        force_=Vec3(0,self.yy,0)*5
+        force=Vec3(0,self.yy2,0)*5
+        
+        
+        if self.box_NP.node().isActive()==False:
+            self.box_NP.node().setActive(True)
+
+        #print(self.box_NP.node().isActive())
+        #self.box_NP.node().setActive(True)
+        self.box_NP.node().applyForce(render.getRelativeVector(self.box_NP, force_),Vec3(-.35, -.5, .3))
+        self.box_NP.node().applyForce(render.getRelativeVector(self.box_NP, force),Vec3(0, -.5, .3))
+        
+        
+    
+
+    
 
 
-yer = Yer()
+ 
+
 diriler=[]
-for i in range(2):
-    diriler.append("diri"+str(i))
-    diriler[i]=Diri()
+
+
+    
+
 
 print(yer.worldNP.getChildren())
 print(yer.boxNP.getChildren())
@@ -329,4 +397,7 @@ print("render ALL Children")
 print(render.getChildren())
 print(base.camList)
 print(yer.worldNP.findAllMatches("*"))
+
+
+    
 base.run()           
