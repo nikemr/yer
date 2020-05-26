@@ -1,2 +1,4 @@
 *.pth
 *.pt
+*checkpoint.ipynb
+__pycache__/
