@@ -1,11 +1,8 @@
 
 import torch
-
 import numpy as np
-
 import sys
 from direct.showbase.ShowBase import ShowBase
-
 from direct.showbase.DirectObject import DirectObject
 from direct.showbase.InputStateGlobal import inputState
 
@@ -43,7 +40,9 @@ from panda3d.bullet import BulletHeightfieldShape
 from panda3d.bullet import ZUp
 from panda3d.bullet import BulletCharacterControllerNode
 from panda3d.core import GraphicsEngine
-import lilly_torch
+import lilly_11
+# import puddle
+# import ernie
 import time
 
 
@@ -92,6 +91,9 @@ class Yer(DirectObject):
         inputState.watchWithModifiers('right', 'd')
         inputState.watchWithModifiers('turnLeft', 'q')
         inputState.watchWithModifiers('turnRight', 'e')
+        inputState.watchWithModifiers('pulse', 'p')
+        inputState.watchWithModifiers('jump', 'j')
+        
 
         
 
@@ -154,12 +156,19 @@ class Yer(DirectObject):
         # Box (dynamic) ################################################################################# 
         for r in range(num_agents):
 
-            shape = BulletBoxShape(Vec3(0.5, 0.5, 0.5))
-            np = self.worldNP.attachNewNode(BulletRigidBodyNode('Box'))            
+            shape = BulletCapsuleShape(.35, 1, ZUp)
+            shape2 = BulletCapsuleShape(.35, 1, ZUp)
+            head = BulletSphereShape(.3)
+            point=BulletSphereShape(.1)
+            np = self.worldNP.attachNewNode(BulletRigidBodyNode('Box'))                        
             np.node().setMass(5)
-            np.node().addShape(shape)
-            np.setPos(5, 5, 2)
-            np.set_scale(1)
+            
+            np.node().addShape(shape,TransformState.makePosHpr(Point3(-.35, 0, 0),Point3(90, 0, 90)))
+            np.node().addShape(shape2,TransformState.makePosHpr(Point3(.35, 0, 0),Point3(90,0, 90)))
+            np.node().addShape(head,TransformState.makePos(Point3(0, .5, 1)))
+            np.node().addShape(point,TransformState.makePos(Point3(0, -1, 1)))
+            np.setPos(0, 0, 2)
+            np.set_scale(3)
             np.setCollideMask(BitMask32.allOn())
             self.world.attachRigidBody(np.node())
             #Friction for the Box
@@ -168,6 +177,8 @@ class Yer(DirectObject):
             
             visualNP = loader.loadModel('models/lilly.gltf')
             visualNP.set_scale(.5)
+            visualNP.setHpr(180,270,0)
+            visualNP.setPos(0,0,-1)
             mats=visualNP.findAllMaterials()
             mats[0].clearBaseColor()
             
@@ -213,6 +224,7 @@ class Yer(DirectObject):
     def processInput(self, dt):
         force = Vec3(0, 0, 0)
         torque = Vec3(0, 0, 0)
+        #impulse = Vec3(0, 0, 0)
         
         
 
@@ -222,15 +234,21 @@ class Yer(DirectObject):
         if inputState.isSet('right'):   force.setX( 1.0)
         if inputState.isSet('turnLeft'):  torque.setZ( 1.0)
         if inputState.isSet('turnRight'): torque.setZ(-1.0)
+        if inputState.isSet('pulse'): impulse.setY(1.0)
+        if inputState.isSet('jump'): force.setZ( 1.0)
 
         force *= 100.0
         
         torque *= 20.0
+        
         for liste in self.worldNP.findAllMatches("Box"):
             force = render.getRelativeVector(liste, force)
+            
             liste.node().setActive(True)
             liste.node().applyCentralForce(force)
+            # liste.node().applyForce(force,Vec3(0, 0, .3))
             liste.node().applyTorque(torque)
+            #liste.node().applyCentralImpulse(impulse)
             
         
         
@@ -247,7 +265,7 @@ class Yer(DirectObject):
         if len(diriler)==0:
             diri=Diri()
             diriler.append(diri) 
-        if len(diriler)<40:            
+        if len(diriler)<1:            
             if simdi-diriler[-1].start>0.20:
                 diri=Diri()
                 diriler.append(diri)
@@ -265,10 +283,16 @@ class Diri(Yer):
         
         
         # Lilly Brain
-        self.lilly_torch=lilly_torch
+        self.lilly_11=lilly_11
+        #ernieBrain
+        # self.ernie=ernie
+        # self.puddle=puddle
         self.start=time.time()
-        self.yy=0
-        self.yy2=0
+        self.x_Force=0
+        self.y_Force=0
+        self.z_Force=0
+        self.z_Torque=0
+
         fb_prop = FrameBufferProperties()
         # Request 8 RGB bits, no alpha bits, and a depth buffer.
         # fb_prop.setRgbColor(True)
@@ -295,7 +319,7 @@ class Diri(Yer):
         self.box_NP.node().addShape(head,TransformState.makePos(Point3(0, .5, 1)))
 
         self.box_NP.setPos(np.random.randint(-30,30), np.random.randint(-30,30),np.random.randint(2,7))
-        
+        self.box_NP.setHpr(np.random.randint(180),0,0)
         self.box_NP.set_scale(1)
 
         self.box_NP.setCollideMask(BitMask32.allOn())
@@ -306,15 +330,15 @@ class Diri(Yer):
 
         lens = PerspectiveLens()
         # visualNP = loader.loadModel('models/mox.egg')
-        visualNP = loader.loadModel('models/lilly.bam')
-        visualNP.set_scale(.5)
-        visualNP.setPos(0,0,-.5)
-        visualNP.setHpr(180,0,0)
+        self.visualNP = loader.loadModel('models/lilly.bam')
+        self.visualNP.set_scale(.5)
+        self.visualNP.setPos(0,0,-.5)
+        self.visualNP.setHpr(180,0,0)
 
-        mats=visualNP.findAllMaterials()
+        mats=self.visualNP.findAllMaterials()
         mats[0].clearBaseColor()
 
-        visualNP.reparentTo(self.box_NP)
+        self.visualNP.reparentTo(self.box_NP)
         self.buffer=base.graphicsEngine.make_output(base.pipe,"diri Buffer", -100, fb_prop, win_prop, flags, base.win.getGsg(), base.win)
         self.cam=base.makeCamera(self.buffer,sort=6,displayRegion=(0.0, 1, 0, 1),camName="diri_cam")
         self.cam.setHpr(0,0,0)
@@ -328,15 +352,11 @@ class Diri(Yer):
 
 
        
-       # taskMgr.add(self.engine, 'updateAgent')
+      
         
 
         
-    # def engine(self, task):
-    #     dt = globalClock.getDt()
-    #     # self.shot()       
-             
-    #     return task.cont
+    
 
     def shot(self):
         
@@ -361,21 +381,29 @@ class Diri(Yer):
                 print("except")
                 my_output=self.buffer.getActiveDisplayRegion(0).getScreenshot()        
                 numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32) 
-            prediction=self.lilly_torch.VGG16_predict(numpy_image_data)           
-            self.yy=prediction[0][0]
-            self.yy2=prediction[0][1]
+            prediction=self.lilly_11.lilly11_predict(numpy_image_data)           
+            # prediction=self.puddle.puddle_predict(numpy_image_data)           
+            self.x_Force=prediction[0][0]
+            self.y_Force=prediction[0][1]
+            self.z_Force=prediction[0][2]
+            self.z_Torque=prediction[0][3]
         
-        force_=Vec3(0,self.yy,0)*5
-        force=Vec3(0,self.yy2,0)*5
-        
+        #force_=Vec3(0,self.yy,0)*10
+        force=Vec3(self.x_Force,self.y_Force,self.z_Force)*15
+        torque=Vec3(0,0,self.z_Torque)*15
         
         if self.box_NP.node().isActive()==False:
             self.box_NP.node().setActive(True)
-
+        force= yer.worldNP.getRelativeVector(self.visualNP, force)
+        torque= yer.worldNP.getRelativeVector(self.visualNP, torque)
+        
         #print(self.box_NP.node().isActive())
         #self.box_NP.node().setActive(True)
-        self.box_NP.node().applyForce(render.getRelativeVector(self.box_NP, force_),Vec3(-.35, -.5, .3))
-        self.box_NP.node().applyForce(render.getRelativeVector(self.box_NP, force),Vec3(0, -.5, .3))
+        self.box_NP.node().applyCentralForce(force)
+        self.box_NP.node().applyTorque(torque)
+        #self.box_NP.node().applyForce(force,Vec3(0, -.5, .3))
+        # self.box_NP.node().applyForce(render.getRelativeVector(self.box_NP, force_),Vec3(-.35, -.5, .3))
+        # self.box_NP.node().applyForce(render.getRelativeVector(self.box_NP, force),Vec3(0, -.5, .3))
         
         
     
