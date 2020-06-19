@@ -1,8 +1,10 @@
-
 import torch
+
 import numpy as np
+
 import sys
 from direct.showbase.ShowBase import ShowBase
+
 from direct.showbase.DirectObject import DirectObject
 from direct.showbase.InputStateGlobal import inputState
 
@@ -44,29 +46,33 @@ import lilly_11
 # import puddle
 # import ernie
 import time
+from time import perf_counter
+base = ShowBase()
 
 
-
-
-
-
-base=ShowBase()
 class Yer(DirectObject):
-    def __init__(self):
+
+    def __init__(self):   
+        
+        self.remove_this='agent0'
+        self.agent_name='agent0'
+        self.agent_number=0
+        self.population={}
         gltf.patch_loader(base.loader)
         # create a rendering window
-        wp=WindowProperties()
-        wp.setSize(1000,1000)
-        base.win.requestProperties(wp) 
+        wp = WindowProperties()
+        wp.setSize(1000, 1000)
+        #somehow this is IMPORTANT (requestProperties)
+        base.win.requestProperties(wp)
         base.setBackgroundColor(0.1, 0.1, 0.8, 1)
-        base.setFrameRateMeter(True)        
+        base.setFrameRateMeter(True)
         base.cam.setPos(0, -80, 50)
-        base.cam.lookAt(0, 0, 0) 
+        base.cam.lookAt(0, 0, 0)
         base.disableMouse()
         base.useTrackball()
 
         # Light      ####################################################################################
-        
+
         alight = AmbientLight('ambientLight')
         alight.setColor(Vec4(0.5, 0.5, 0.5, 1))
         alightNP = render.attachNewNode(alight)
@@ -77,28 +83,34 @@ class Yer(DirectObject):
         render.clearLight()
         render.setLight(alightNP)
         render.setLight(dlightNP)
-        #render.setShaderAuto()
+        render.setShaderAuto()
 
+        self.landscape()
 
-        self.setup() 
         taskMgr.add(self.update, 'updateWorld')
-        self.accept('f5', self.doScreenshot)
+
         self.accept('f3', self.toggleDebug)
 
-        inputState.watchWithModifiers('forward', 'w')
-        inputState.watchWithModifiers('left', 'a')
-        inputState.watchWithModifiers('reverse', 's')
-        inputState.watchWithModifiers('right', 'd')
-        inputState.watchWithModifiers('turnLeft', 'q')
-        inputState.watchWithModifiers('turnRight', 'e')
-        inputState.watchWithModifiers('pulse', 'p')
-        inputState.watchWithModifiers('jump', 'j')
-        
 
-        
 
-     
-     
+
+        # remove a agent
+        self.accept('k',self.remove_agent,[self.remove_this])
+        # add an agent
+        self.accept('n', self.agent_trig,[Lillies])
+
+        # inputState.watchWithModifiers('forward', 'w')
+        # inputState.watchWithModifiers('left', 'a')
+        # inputState.watchWithModifiers('reverse', 's')
+        # inputState.watchWithModifiers('right', 'd')
+        # inputState.watchWithModifiers('turnLeft', 'q')
+        # inputState.watchWithModifiers('turnRight', 'e')
+        # inputState.watchWithModifiers('pulse', 'p')
+        # inputState.watchWithModifiers('jump', 'j')
+        # inputState.watchWithModifiers('removeNode', 'k')
+
+
+
     def toggleDebug(self):
         if self.debugNP.isHidden():
             self.debugNP.show()
@@ -106,20 +118,19 @@ class Yer(DirectObject):
             self.debugNP.hide()
 
 
-    def setup(self):
-        
+    def landscape(self):
         ## Bullet World #################################################################################
         self.worldNP = render.attachNewNode('World')
+
         self.debugNP = self.worldNP.attachNewNode(BulletDebugNode('Debug'))
         self.debugNP.show()
         self.debugNP.node().showNormals(True)
 
-        self.world = BulletWorld()        
-        self.world.setGravity(Vec3(0, 0, -9.81))        
+        self.world = BulletWorld()
         self.world.setDebugNode(self.debugNP.node())
+        self.world.setGravity(Vec3(0, 0, -9.81))
 
-        
-        # Heightfield (static) ##########################################################################
+        # Heightfield Surface ##########################################################################
         height = 6.0
         img = PNMImage()
         # couldn't read the files at fist and asked help from the forum. That's why it looks weird.
@@ -128,304 +139,200 @@ class Yer(DirectObject):
         shape.setUseDiamondSubdivision(True)
         np = self.worldNP.attachNewNode(BulletRigidBodyNode('Heightfield'))
         np.node().addShape(shape)
-        np.setPos(0, 0, 0)        
+        np.setPos(0, 0, 0)
         np.set_scale(2)
         np.node().setFriction(.5)
         np.setCollideMask(BitMask32.allOn())
-        self.world.attachRigidBody(np.node())
-        self.hf = np.node() # To enable/disable debug visualisation
+        self.world.attach(np.node())
+        self.hf = np.node()  # To enable/disable debug visualisation
         self.terrain = GeoMipTerrain('terrain')
-        self.terrain.setHeightfield(img)    
+        self.terrain.setHeightfield(img)
         self.terrain.setBlockSize(32)
-        #I don't want any optimization that's why I commented that
-        #self.terrain.setNear(50)
-        #self.terrain.setFar(100)
-        #self.terrain.setFocalPoint(base.camera)    
+        # I don't want any optimization that's why I commented that
+        # self.terrain.setNear(50)
+        # self.terrain.setFar(100)
+        # self.terrain.setFocalPoint(base.camera)
         rootNP = self.terrain.getRoot()
         rootNP.reparentTo(render)
-        rootNP.setSz(height*2)
+        rootNP.setSz(height * 2)
         rootNP.setSx(2)
         rootNP.setSy(2)
         offset = img.getXSize() / 2.0 - 0.5
-        rootNP.setPos(-offset*2, -offset*2, -height )    
+        rootNP.setPos(-offset * 2, -offset * 2, -height)
         self.terrain.generate()
 
-        
-        num_agents=1
-
-        # Box (dynamic) ################################################################################# 
-        for r in range(num_agents):
-
-            shape = BulletCapsuleShape(.35, 1, ZUp)
-            shape2 = BulletCapsuleShape(.35, 1, ZUp)
-            head = BulletSphereShape(.3)
-            point=BulletSphereShape(.1)
-            np = self.worldNP.attachNewNode(BulletRigidBodyNode('Box'))                        
-            np.node().setMass(5)
-            
-            np.node().addShape(shape,TransformState.makePosHpr(Point3(-.35, 0, 0),Point3(90, 0, 90)))
-            np.node().addShape(shape2,TransformState.makePosHpr(Point3(.35, 0, 0),Point3(90,0, 90)))
-            np.node().addShape(head,TransformState.makePos(Point3(0, .5, 1)))
-            np.node().addShape(point,TransformState.makePos(Point3(0, -1, 1)))
-            np.setPos(0, 0, 2)
-            np.set_scale(3)
-            np.setCollideMask(BitMask32.allOn())
-            self.world.attachRigidBody(np.node())
-            #Friction for the Box
-            np.node().setFriction(0.5)
-            self.boxNP = np # For applying force & torque
-            
-            visualNP = loader.loadModel('models/lilly.gltf')
-            visualNP.set_scale(.5)
-            visualNP.setHpr(180,270,0)
-            visualNP.setPos(0,0,-1)
-            mats=visualNP.findAllMaterials()
-            mats[0].clearBaseColor()
-            
-            visualNP.clearModelNodes()
-            visualNP.reparentTo(self.boxNP)
-
-            
-
-         
-        # Buffers and Cameras ###########################################################################
-        fb_prop = FrameBufferProperties()
-        # Request 8 RGB bits, no alpha bits, and a depth buffer.
-        fb_prop.setRgbColor(True)
-        fb_prop.setRgbaBits(8, 8, 8, 0)
-        fb_prop.setDepthBits(16)
-        # Create a WindowProperties object set to 256x256 size.
-        win_prop = WindowProperties.size(240, 240)
-        flags = GraphicsPipe.BF_refuse_window
-        self.buffs=[]
-        self.cams=[]
-        for buf in range(0,num_agents):
-            self.buffs.append(base.graphicsEngine.make_output(base.pipe,"My Buffer"+str(buf+1), -100, fb_prop, win_prop, flags, base.win.getGsg(), base.win))
-            self.cams.append(base.makeCamera(self.buffs[buf],sort=0,displayRegion=(0.0, 1, 0, 1),camName="cam"+str(buf+1)))
-            self.cams[buf].reparentTo(self.worldNP.findAllMatches("Box")[buf])
-
-
-
-
-
-    def doScreenshot(self):
-        base.screenshot('Bullet')
-        # nice
-        t=0
-        for buf in self.buffs:
-            buf.getActiveDisplayRegion(0).saveScreenshotDefault('MYBUFFER'+str(t))
-            t+=1
-            #my_output=buf.getActiveDisplayRegion(0).getScreenshot()        
-            #numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32)
-            #print(numpy_image_data)
-            #predict_that=lilly_torch.VGG16_predict("MYBUFFER.jpg")
-            #print(predict_that)   
     
-    def processInput(self, dt):
-        force = Vec3(0, 0, 0)
-        torque = Vec3(0, 0, 0)
-        #impulse = Vec3(0, 0, 0)
-        
-        
+    def life_checker(self):
+        now=perf_counter()
+        for i in self.population:     
+            # heartbeat of the agent  
+            self.population[i][0].heart()    
+            # current height 
+            my_z=self.population[i][0].my_z
+            # current age
+            elapsed=now-self.population[i][1]
 
-        if inputState.isSet('forward'): force.setY( 1.0)
-        if inputState.isSet('reverse'): force.setY(-1.0)
-        if inputState.isSet('left'):    force.setX(-1.0)
-        if inputState.isSet('right'):   force.setX( 1.0)
-        if inputState.isSet('turnLeft'):  torque.setZ( 1.0)
-        if inputState.isSet('turnRight'): torque.setZ(-1.0)
-        if inputState.isSet('pulse'): impulse.setY(1.0)
-        if inputState.isSet('jump'): force.setZ( 1.0)
+            if (elapsed>10) or (my_z<-5):
+                print(i)
+                self.remove_agent(i)
+                # very nice break, just breaks the loop after removing agent so no dictionary error
+                break
+                
 
-        force *= 100.0
-        
-        torque *= 20.0
-        
-        for liste in self.worldNP.findAllMatches("Box"):
-            force = render.getRelativeVector(liste, force)
-            
-            liste.node().setActive(True)
-            liste.node().applyCentralForce(force)
-            # liste.node().applyForce(force,Vec3(0, 0, .3))
-            liste.node().applyTorque(torque)
-            #liste.node().applyCentralImpulse(impulse)
-            
-        
-        
+
+
 
 
 
     def update(self, task):
         dt = globalClock.getDt()
-        self.processInput(dt)
-        self.world.doPhysics(dt) 
-        simdi=time.time()
-
-
-        if len(diriler)==0:
-            diri=Diri()
-            diriler.append(diri) 
-        if len(diriler)<1:            
-            if simdi-diriler[-1].start>0.20:
-                diri=Diri()
-                diriler.append(diri)
-
-        for i in diriler:            
-            i.shot()   
-
+        self.world.doPhysics(dt)              
+        self.life_checker()
         return task.cont
 
-yer = Yer()
+    
+    
+    def remove_agent(self,remove_this):
 
-class Diri(Yer):
-    def __init__(self):
+        print(f'removed agent: {self.worldNP.find(remove_this)}')
+        
+        if not self.worldNP.find(remove_this).isEmpty():
+            # this is pyhon Lilly Class instance in the population dictionary
+            del self.population[remove_this]
+            # this is PyBullet Node
+            self.world.remove(self.worldNP.find(remove_this).node())
+            # this is PyBullet NodePath
+            self.worldNP.find(remove_this).detachNode()
+            
 
+
+
+
+   
+    def agent_trig(self,fn):
         
-        
-        # Lilly Brain
+        #add this instance to population dictionary in the yer
+        agent=fn(self.agent_name)
+        self.population[self.agent_name]= agent,time.perf_counter()
+        self.agent_number += 1
+        self.agent_name='agent'+str(self.agent_number)
+        print(self.population.items())
+        #return fn(self.agent_name)
+
+
+    def make_body(self,agent_name):
+
+        """creates agents for the world"""
+        shape = BulletCapsuleShape(.35, 1, ZUp)
+        shape2 = BulletCapsuleShape(.35, 1, ZUp)
+        head = BulletSphereShape(.3)
+        # nodepath---------------------------
+        body_node_path = self.worldNP.attachNewNode(BulletRigidBodyNode(agent_name))
+        print(body_node_path)
+        body_node_path.setPos(0, 0, 10)
+        # body_node_path.set_scale(3)
+        body_node_path.setCollideMask(BitMask32.allOn())
+        # node-------------------------------
+        body_node = body_node_path.node()
+        body_node.setMass(5)
+        body_node.addShape(shape, TransformState.makePosHpr(Point3(-.35, 0, 0), Point3(90, 0, 90)))
+        body_node.addShape(shape2, TransformState.makePosHpr(Point3(.35, 0, 0), Point3(90, 0, 90)))
+        body_node.addShape(head, TransformState.makePos(Point3(0, .5, 1)))
+        body_node.setFriction(0.5)
+        # visual representation--------------
+        visualNP = loader.loadModel('models/lilly.gltf')
+        materials = visualNP.findAllMaterials()
+        materials[0].clearBaseColor()
+
+        # BU NE?
+        visualNP.clearModelNodes()
+        #BU NE?
+        visualNP.reparentTo(body_node_path)
+        return agent_name, body_node_path, body_node
+       
+
+
+
+    # def total_agents(self):
+
+    def food_maker(self):
+        """creates food for the world"""
+        pass
+
+
+class Lillies(Yer):
+    
+    def __init__(self,agent_name):        
+        self.my_z=0
         self.lilly_11=lilly_11
-        #ernieBrain
-        # self.ernie=ernie
-        # self.puddle=puddle
-        self.start=time.time()
         self.x_Force=0
         self.y_Force=0
         self.z_Force=0
         self.z_Torque=0
-
+       
         fb_prop = FrameBufferProperties()
         # Request 8 RGB bits, no alpha bits, and a depth buffer.
-        # fb_prop.setRgbColor(True)
-        fb_prop.setSrgbColor(True)
+        fb_prop.setRgbColor(True)
+        # fb_prop.setSrgbColor(True)**** Dosn't work with this in this file???? ************
         fb_prop.setRgbaBits(8, 8, 8, 0)
         fb_prop.setDepthBits(16)
         # Create a WindowProperties object set to 256x256 size.
         win_prop = WindowProperties.size(240, 240)
         flags = GraphicsPipe.BF_refuse_window
+        # flags = GraphicsPipe.BF_require_window
         
-        
-
-        shape = BulletCapsuleShape(.35, 1, ZUp)
-        shape2 = BulletCapsuleShape(.35, 1, ZUp)
-        head = BulletSphereShape(.3)
-        # shape = BulletBoxShape(Vec3(0.5, 0.5, 0.5))
-        nopa = yer.worldNP.attachNewNode(BulletRigidBodyNode('Box_'))
-        
-        self.box_NP = nopa 
-        
-        self.box_NP.node().setMass(3)
-        self.box_NP.node().addShape(shape,TransformState.makePosHpr(Point3(-.35, 0, 0),Point3(90, 0, 90)))
-        self.box_NP.node().addShape(shape2,TransformState.makePosHpr(Point3(.35, 0, 0),Point3(90,0, 90)))
-        self.box_NP.node().addShape(head,TransformState.makePos(Point3(0, .5, 1)))
-
-        self.box_NP.setPos(np.random.randint(-30,30), np.random.randint(-30,30),np.random.randint(2,7))
-        self.box_NP.setHpr(np.random.randint(180),0,0)
-        self.box_NP.set_scale(1)
-
-        self.box_NP.setCollideMask(BitMask32.allOn())
-        yer.world.attachRigidBody(self.box_NP.node())
-        #Friction for the Box
-        self.box_NP.node().setFriction(0.5)
-        
-
         lens = PerspectiveLens()
-        # visualNP = loader.loadModel('models/mox.egg')
-        self.visualNP = loader.loadModel('models/lilly.bam')
-        self.visualNP.set_scale(.5)
-        self.visualNP.setPos(0,0,-.5)
-        self.visualNP.setHpr(180,0,0)
-
-        mats=self.visualNP.findAllMaterials()
-        mats[0].clearBaseColor()
-
-        self.visualNP.reparentTo(self.box_NP)
-        self.buffer=base.graphicsEngine.make_output(base.pipe,"diri Buffer", -100, fb_prop, win_prop, flags, base.win.getGsg(), base.win)
-        self.cam=base.makeCamera(self.buffer,sort=6,displayRegion=(0.0, 1, 0, 1),camName="diri_cam")
-        self.cam.setHpr(0,0,0)
-        self.cam.setPos(0,0,1)
-        self.cam.node().setLens(lens)
+        self.my_buff=base.graphicsEngine.make_output(base.pipe,yer.agent_name+"_buffer", -100, fb_prop, win_prop, flags, base.win.getGsg(), base.win)
+        my_cam=base.makeCamera(self.my_buff,sort=6,displayRegion=(0.0, 1, 0, 1),camName=yer.agent_name+"_cam")
+        my_cam.setHpr(0,0,0)
+        my_cam.setPos(0,0,1)
+        my_cam.node().setLens(lens)
         lens.setFov(100)
-        #self.setFov(100)
-        self.cam.reparentTo(self.box_NP)
 
+        #make body of the agent
+        
+        agent_name, body_node_path, body_node= yer.make_body(agent_name)
+        self.my_path=body_node_path
+        my_cam.reparentTo(body_node_path)
+
+        yer.world.attach(body_node)
+
+        # removing except statement from  heart() and adding "renderFrame" may lead better performance TRY IT
+        # base.graphicsEngine.renderFrame()
+        
+    def heart(self):         
+        # print('shot')        
+        # my_output=self.my_buff.getActiveDisplayRegion(0).getScreenshot()                 
+        # numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32)
+        self.my_z=self.my_path.getZ()
+        try:
+            my_output=self.my_buff.getActiveDisplayRegion(0).getScreenshot()        
+            numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32)
+        except:
+            base.graphicsEngine.renderFrame()
+            print("except")
+            my_output=self.my_buff.getActiveDisplayRegion(0).getScreenshot()        
+            numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32)
         
 
 
-       
-      
-        
 
-        
-    
+yer = Yer()
 
-    def shot(self):
-        
-        simdi=time.time()        
-        self.fark=simdi-self.start
-        # for i in diriler:
-        #     if i==self:
-        #         print(self.shot)
-        #         print(time.time())    
-            
-        
-            
+#ajan = yer.make_body("agent0")
 
-        if self.fark>.6:
-
-            self.start=time.time()
-            try:
-                my_output=self.buffer.getActiveDisplayRegion(0).getScreenshot()        
-                numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32)
-            except:
-                base.graphicsEngine.renderFrame()
-                print("except")
-                my_output=self.buffer.getActiveDisplayRegion(0).getScreenshot()        
-                numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32) 
-            prediction=self.lilly_11.lilly11_predict(numpy_image_data)           
-            # prediction=self.puddle.puddle_predict(numpy_image_data)           
-            self.x_Force=prediction[0][0]
-            self.y_Force=prediction[0][1]
-            self.z_Force=prediction[0][2]
-            self.z_Torque=prediction[0][3]
-        
-        #force_=Vec3(0,self.yy,0)*10
-        force=Vec3(self.x_Force,self.y_Force,self.z_Force)*15
-        torque=Vec3(0,0,self.z_Torque)*15
-        
-        if self.box_NP.node().isActive()==False:
-            self.box_NP.node().setActive(True)
-        force= yer.worldNP.getRelativeVector(self.visualNP, force)
-        torque= yer.worldNP.getRelativeVector(self.visualNP, torque)
-        
-        #print(self.box_NP.node().isActive())
-        #self.box_NP.node().setActive(True)
-        self.box_NP.node().applyCentralForce(force)
-        self.box_NP.node().applyTorque(torque)
-        #self.box_NP.node().applyForce(force,Vec3(0, -.5, .3))
-        # self.box_NP.node().applyForce(render.getRelativeVector(self.box_NP, force_),Vec3(-.35, -.5, .3))
-        # self.box_NP.node().applyForce(render.getRelativeVector(self.box_NP, force),Vec3(0, -.5, .3))
-        
-        
-    
-
-    
-
-
- 
-
-diriler=[]
-
-
-    
-
-
+print("WorldNP ALL Children")
 print(yer.worldNP.getChildren())
-print(yer.boxNP.getChildren())
-print("render ALL Children")
+
 print(render.getChildren())
+
+print("Camera List--------")
 print(base.camList)
+
+print("WORLD NP")
 print(yer.worldNP.findAllMatches("*"))
 
+print("A.J.A.N")
+print(yer.worldNP.find("*").node())
 
-    
-base.run()           
+base.run()
