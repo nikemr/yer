@@ -53,7 +53,7 @@ base = ShowBase()
 class Yer(DirectObject):
 
     def __init__(self):   
-        
+        self.loop_counter=0
         self.remove_this='agent0'
         self.agent_name='agent0'
         self.agent_number=0
@@ -97,7 +97,7 @@ class Yer(DirectObject):
         # remove a agent
         self.accept('k',self.remove_agent,[self.remove_this])
         # add an agent
-        self.accept('n', self.agent_trig,[Lillies])
+        self.accept('n', self.agent_factory,[Lillies])
 
         # inputState.watchWithModifiers('forward', 'w')
         # inputState.watchWithModifiers('left', 'a')
@@ -163,24 +163,32 @@ class Yer(DirectObject):
 
     
     def life_checker(self):
+
+        
         now=perf_counter()
-        for i in self.population:     
-            # heartbeat of the agent  
+       
+        
+            
+        # self.loop_counter=now 
+        for i in self.population:  
+            # print('heartbeat')
+            # heartbeat of the agent            #  
+            
+            
             self.population[i][0].heart()    
             # current height 
             my_z=self.population[i][0].my_z
-            # current age
+            # 'elapsed'current age for the agent
             elapsed=now-self.population[i][1]
+            
 
-            if (elapsed>10) or (my_z<-5):
+            
+            if (elapsed>1000) or (my_z<-5):
                 print(i)
                 self.remove_agent(i)
                 # very nice break, just breaks the loop after removing agent so no dictionary error
                 break
-                
-
-
-
+           
 
 
 
@@ -203,16 +211,13 @@ class Yer(DirectObject):
             self.world.remove(self.worldNP.find(remove_this).node())
             # this is PyBullet NodePath
             self.worldNP.find(remove_this).detachNode()
-            
-
-
-
 
    
-    def agent_trig(self,fn):
-        
+    def agent_factory(self,fn):
+
         #add this instance to population dictionary in the yer
         agent=fn(self.agent_name)
+
         self.population[self.agent_name]= agent,time.perf_counter()
         self.agent_number += 1
         self.agent_name='agent'+str(self.agent_number)
@@ -261,8 +266,11 @@ class Yer(DirectObject):
 
 
 class Lillies(Yer):
-    
-    def __init__(self,agent_name):        
+
+    def __init__(self,agent_name):  
+
+        self.hearttime=0
+        # bullet notePath 'z' value 
         self.my_z=0
         self.lilly_11=lilly_11
         self.x_Force=0
@@ -293,6 +301,7 @@ class Lillies(Yer):
         
         agent_name, body_node_path, body_node= yer.make_body(agent_name)
         self.my_path=body_node_path
+        self.body_node=body_node
         my_cam.reparentTo(body_node_path)
 
         yer.world.attach(body_node)
@@ -300,20 +309,41 @@ class Lillies(Yer):
         # removing except statement from  heart() and adding "renderFrame" may lead better performance TRY IT
         # base.graphicsEngine.renderFrame()
         
-    def heart(self):         
-        # print('shot')        
-        # my_output=self.my_buff.getActiveDisplayRegion(0).getScreenshot()                 
-        # numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32)
-        self.my_z=self.my_path.getZ()
-        try:
-            my_output=self.my_buff.getActiveDisplayRegion(0).getScreenshot()        
-            numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32)
-        except:
-            base.graphicsEngine.renderFrame()
-            print("except")
-            my_output=self.my_buff.getActiveDisplayRegion(0).getScreenshot()        
-            numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32)
-        
+    def heart(self):   
+
+        now=perf_counter()
+
+        if now-self.hearttime>1:
+
+            self.my_z=self.my_path.getZ()
+            # print('heartbeat')
+            try:
+                my_output=self.my_buff.getActiveDisplayRegion(0).getScreenshot()
+                # for feeding neural net 
+                numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32)
+            except:
+                base.graphicsEngine.renderFrame()
+                print("except")
+                my_output=self.my_buff.getActiveDisplayRegion(0).getScreenshot()        
+                numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32)
+            # output neural net 
+            prediction=self.lilly_11.lilly11_predict(numpy_image_data)
+
+            x_Force=prediction[0][0]
+            y_Force=prediction[0][1]
+            z_Force=prediction[0][2]
+            z_Torque=prediction[0][3]
+
+            force=Vec3(x_Force,y_Force,z_Force)*50
+            torque=Vec3(0,0,z_Torque)*8
+
+            force= yer.worldNP.getRelativeVector(self.my_path, force)
+            torque= yer.worldNP.getRelativeVector(self.my_path, torque)
+            self.body_node.setActive(True)
+            self.body_node.applyCentralForce(force)
+            self.body_node.applyTorque(torque)
+            self.hearttime=perf_counter()
+
 
 
 
