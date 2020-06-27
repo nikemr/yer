@@ -246,6 +246,9 @@ class Yer(DirectObject):
         body_node.setFriction(0.5)
         # visual representation--------------
         visualNP = loader.loadModel('models/lilly.gltf')
+        visualNP.set_scale(.5)
+        visualNP.setPos(0,0,0)
+        visualNP.setHpr(180,270,0)
         materials = visualNP.findAllMaterials()
         materials[0].clearBaseColor()
 
@@ -273,6 +276,7 @@ class Lillies(Yer):
         # bullet notePath 'z' value 
         self.my_z=0
         self.lilly_11=lilly_11
+        print(self.lilly_11[0].values)
         self.x_Force=0
         self.y_Force=0
         self.z_Force=0
@@ -313,7 +317,7 @@ class Lillies(Yer):
 
         now=perf_counter()
 
-        if now-self.hearttime>1:
+        if now-self.hearttime>.5:
 
             self.my_z=self.my_path.getZ()
             # print('heartbeat')
@@ -334,8 +338,8 @@ class Lillies(Yer):
             z_Force=prediction[0][2]
             z_Torque=prediction[0][3]
 
-            force=Vec3(x_Force,y_Force,z_Force)*50
-            torque=Vec3(0,0,z_Torque)*8
+            force=Vec3(x_Force,y_Force,z_Force)*150
+            torque=Vec3(0,0,z_Torque)*40
 
             force= yer.worldNP.getRelativeVector(self.my_path, force)
             torque= yer.worldNP.getRelativeVector(self.my_path, torque)
