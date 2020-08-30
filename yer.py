@@ -31,6 +31,7 @@ from panda3d.core import FrameBufferProperties
 from panda3d.core import GraphicsBuffer
 from panda3d.core import GraphicsPipe
 
+from panda3d.bullet import BulletGhostNode
 from panda3d.bullet import BulletWorld
 from panda3d.bullet import BulletPlaneShape
 from panda3d.bullet import BulletBoxShape
@@ -90,6 +91,7 @@ class Yer(DirectObject):
         self.landscape()
 
         taskMgr.add(self.update, 'updateWorld')
+        
 
         self.accept('f3', self.toggleDebug)
 
@@ -111,7 +113,41 @@ class Yer(DirectObject):
         inputState.watchWithModifiers('pulse', 'p')
         inputState.watchWithModifiers('jump', 'j')
         
+        
+        # this is Temporary for [foodPiece] collision
+        # taskMgr.add(self.who_eats, 'who_eats')
+        # shape = BulletBoxShape(Vec3(1, 1, 1))
+        # food = BulletGhostNode('food')
+        # food.addShape(shape)
+        # self.food_np = render.attachNewNode(food)
+        # node=self.food_np.node()
+        
+        # self.food_np.setPos(0, 0, 2.2)
+        # self.food_np.setCollideMask(BitMask32(0x0f))
+        # self.world.attachGhost(food)
 
+
+    # this is for [foodPiece] collision (Ghost object)    
+    # def who_eats(self, task):
+    #     food =self.food_np.node()
+    #     print(food.getNumOverlappingNodes())
+    #     for node in food.getOverlappingNodes():
+    #         print(node)
+
+    #     return task.cont
+
+    def food_maker(self):
+        dx = 2.0
+        dy = 2.0
+        dz = 2.0
+        shape = BulletBoxShape(Vec3(dx, dy, dz))
+        np = self.worldNP.attachNewNode(BulletRigidBodyNode('Box'))
+        np.node().setMass(1.0)
+        np.node().addShape(shape)
+        np.setPos(4, 4, 4)
+        np.setCollideMask(BitMask32.allOn())
+        self.world.attachRigidBody(np.node())
+        
 
 
     def toggleDebug(self):
@@ -239,13 +275,13 @@ class Yer(DirectObject):
         head = BulletSphereShape(.3)
         # nodepath---------------------------
         body_node_path = self.worldNP.attachNewNode(BulletRigidBodyNode(agent_name))
-        print(body_node_path)
+        # print(body_node_path)
         body_node_path.setPos(0, 0, 5)
         # body_node_path.set_scale(3)
         body_node_path.setCollideMask(BitMask32.allOn())
         # node-------------------------------
         body_node = body_node_path.node()
-        body_node.setMass(10)
+        body_node.setMass(5)
         body_node.addShape(shape, TransformState.makePosHpr(Point3(-.35, 0, 0), Point3(90, 0, 90)))
         body_node.addShape(shape2, TransformState.makePosHpr(Point3(.35, 0, 0), Point3(90, 0, 90)))
         body_node.addShape(head, TransformState.makePos(Point3(0, .5, 1)))
@@ -267,11 +303,9 @@ class Yer(DirectObject):
 
 
 
-    # def total_agents(self):
+    
 
-    def food_maker(self):
-        """creates food for the world"""
-        pass
+    
 
 
 class Lillies(Yer):
@@ -345,8 +379,8 @@ class Lillies(Yer):
             z_Force=prediction[0][2]
             z_Torque=prediction[0][3]
 
-            force=Vec3(x_Force,y_Force,z_Force)*150
-            torque=Vec3(0,0,z_Torque)*40
+            force=Vec3(x_Force,y_Force,z_Force)*100
+            torque=Vec3(0,0,z_Torque)*25
 
             force= yer.worldNP.getRelativeVector(self.my_path, force)
             torque= yer.worldNP.getRelativeVector(self.my_path, torque)
@@ -444,6 +478,7 @@ yer = Yer()
 # this is manual controlled agent for debugging
 
 agent0=yer.agent_factory(LilliesManual)
+f=yer.food_maker()
 
 
 
