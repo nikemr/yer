@@ -1,6 +1,7 @@
 import torch
 
 import numpy as np
+from numpy import interp as interp
 
 import sys
 from direct.showbase.ShowBase import ShowBase
@@ -50,22 +51,25 @@ import home_bred
 # import ernie
 import time
 from time import perf_counter
+from opensimplex import OpenSimplex
+
+
 base = ShowBase()
 
 
 class Yer(DirectObject):
 
-    def __init__(self):   
-        self.loop_counter=0
-        self.remove_this='agent0'
-        self.agent_name='agent0'
-        self.agent_number=0
-        self.population={}
+    def __init__(self):
+        self.loop_counter = 0
+        self.remove_this = 'agent0'
+        self.agent_name = 'agent0'
+        self.agent_number = 0
+        self.population = {}
         gltf.patch_loader(base.loader)
         # create a rendering window
         wp = WindowProperties()
         wp.setSize(1000, 1000)
-        #somehow this is IMPORTANT (requestProperties)
+        # somehow this is IMPORTANT (requestProperties)
         base.win.requestProperties(wp)
         base.setBackgroundColor(0.1, 0.1, 0.8, 1)
         base.setFrameRateMeter(True)
@@ -91,18 +95,14 @@ class Yer(DirectObject):
         self.landscape()
 
         taskMgr.add(self.update, 'updateWorld')
-        
 
         self.accept('f3', self.toggleDebug)
 
-
-        
-
         # remove a agent
-        self.accept('k',self.remove_agent,[self.remove_this])
+        self.accept('k', self.remove_agent, [self.remove_this])
         # add an agent
-        self.accept('n', self.agent_factory,[Lillies])
-       
+        self.accept('n', self.agent_factory, [Lillies])
+
         # manual agent control ----------------------
         inputState.watchWithModifiers('forward', 'w')
         inputState.watchWithModifiers('left', 'a')
@@ -112,8 +112,7 @@ class Yer(DirectObject):
         inputState.watchWithModifiers('turnRight', 'e')
         inputState.watchWithModifiers('pulse', 'p')
         inputState.watchWithModifiers('jump', 'j')
-        
-        
+
         # this is Temporary for [foodPiece] collision
         # taskMgr.add(self.who_eats, 'who_eats')
         # shape = BulletBoxShape(Vec3(1, 1, 1))
@@ -121,13 +120,12 @@ class Yer(DirectObject):
         # food.addShape(shape)
         # self.food_np = render.attachNewNode(food)
         # node=self.food_np.node()
-        
+
         # self.food_np.setPos(0, 0, 2.2)
         # self.food_np.setCollideMask(BitMask32(0x0f))
         # self.world.attachGhost(food)
 
-
-    # this is for [foodPiece] collision (Ghost object)    
+    # this is for [foodPiece] collision (Ghost object)
     # def who_eats(self, task):
     #     food =self.food_np.node()
     #     print(food.getNumOverlappingNodes())
@@ -137,17 +135,50 @@ class Yer(DirectObject):
     #     return task.cont
 
     def food_maker(self):
-        dx = 2.0
-        dy = 2.0
-        dz = 2.0
-        shape = BulletBoxShape(Vec3(dx, dy, dz))
-        np = self.worldNP.attachNewNode(BulletRigidBodyNode('Box'))
-        np.node().setMass(1.0)
-        np.node().addShape(shape)
-        np.setPos(4, 4, 4)
-        np.setCollideMask(BitMask32.allOn())
-        self.world.attachRigidBody(np.node())
+        dx = .5
+        dy = .5
+        dz = .5
+        #shape = BulletBoxShape(Vec3(dx, dy, dz))
+        food = OpenSimplex(seed=1)
+        visualNPList={}
+        npathList={}
+        # based on approxiamate width of the landscape (hard-coded)
+        for i in range(-60, 61, 3):
+            for j in range(-60, 61, 3):
+                # 2d noise for scaling
+                
+                food_scale = food.noise2d(i/50, j/50)
+                # interpolated between (0-1)
+                food_scale = interp(food_scale, (-1, 1), (0, 1))
+                shape = BulletBoxShape(Vec3(dx*food_scale , dy*food_scale , dz*food_scale))
+                chance = food_scale * np.random.randint(0, 100)
+                
+                #if chance > 40:
+                    
+                
+                
+                npathList[i,j] = self.worldNP.attachNewNode(BulletRigidBodyNode('Box'))
+                
+                #visualNP.setPos(0,0,0)
+                
+                
+                
+                npathList[i,j].setPos(i, j, 4)
+                
+                npathList[i,j].node().setFriction(1)
+                npathList[i,j].node().setMass(5)
+                npathList[i,j].node().addShape(shape)
+                
+                
+
+                
+                npathList[i,j].setCollideMask(BitMask32.allOn())
+                self.world.attachRigidBody(npathList[i,j].node())
+                visualNPList[i,j] = loader.loadModel('models/cube.gltf')
+                visualNPList[i,j].set_scale(food_scale)
+                visualNPList[i,j].reparentTo(npathList[i,j])
         
+                
 
 
     def toggleDebug(self):
@@ -155,7 +186,6 @@ class Yer(DirectObject):
             self.debugNP.show()
         else:
             self.debugNP.hide()
-
 
     def landscape(self):
         ## Bullet World #################################################################################
@@ -173,7 +203,8 @@ class Yer(DirectObject):
         height = 6.0
         img = PNMImage()
         # couldn't read the files at fist and asked help from the forum. That's why it looks weird.
-        assert img.read(getModelPath().findFile('models/elevation2.png')), "Failed to read!"
+        assert img.read(getModelPath().findFile(
+            'models/elevation2.png')), "Failed to read!"
         shape = BulletHeightfieldShape(img, height, ZUp)
         shape.setUseDiamondSubdivision(True)
         np = self.worldNP.attachNewNode(BulletRigidBodyNode('Heightfield'))
@@ -200,52 +231,42 @@ class Yer(DirectObject):
         rootNP.setPos(-offset * 2, -offset * 2, -height)
         self.terrain.generate()
 
-    
     def life_checker(self):
-        
-        now=perf_counter()
-       
-        #TODO: the lifechecker checks and make agent's heart beat in every frame in below loop
-        #but it is not efficient, maybe only one of them is enough.
-        #it is possible with generator or something
-            
-        # self.loop_counter=now 
-        for i in self.population:  
-            # print('heartbeat')
-            # heartbeat of the agent            #  
-            
-            
-            self.population[i][0].heart()    
-            # current height 
-            my_z=self.population[i][0].my_z
-            # 'elapsed'current age for the agent
-            elapsed=now-self.population[i][1]
-            
 
-            
-            if (elapsed>1000) or (my_z<-10):
+        now = perf_counter()
+
+        # TODO: the lifechecker checks and make agent's heart beat in every frame in below loop
+        # but it is not efficient, maybe only one of them is enough.
+        # it is possible with generator or something
+
+        # self.loop_counter=now
+        for i in self.population:
+            # print('heartbeat')
+            # heartbeat of the agent            #
+
+            self.population[i][0].heart()
+            # current height
+            my_z = self.population[i][0].my_z
+            # 'elapsed'current age for the agent
+            elapsed = now-self.population[i][1]
+
+            if (elapsed > 1000) or (my_z < -10):
                 print(i)
                 self.remove_agent(i)
                 # very nice break, just breaks the loop after removing agent so no dictionary error
                 break
-           
-
-
 
     def update(self, task):
         dt = globalClock.getDt()
-        self.world.doPhysics(dt)              
+        self.world.doPhysics(dt)
         self.life_checker()
 
-        
         return task.cont
 
-    
-    
-    def remove_agent(self,remove_this):
+    def remove_agent(self, remove_this):
 
         print(f'removed agent: {self.worldNP.find(remove_this)}')
-        
+
         if not self.worldNP.find(remove_this).isEmpty():
             # this is pyhon Lilly Class instance in the population dictionary
             del self.population[remove_this]
@@ -254,27 +275,25 @@ class Yer(DirectObject):
             # this is PyBullet NodePath
             self.worldNP.find(remove_this).detachNode()
 
-   
-    def agent_factory(self,fn):
+    def agent_factory(self, fn):
 
-        #add this instance to population dictionary in the yer
-        agent=fn(self.agent_name)
+        # add this instance to population dictionary in the yer
+        agent = fn(self.agent_name)
 
-        self.population[self.agent_name]= agent,time.perf_counter()
+        self.population[self.agent_name] = agent, time.perf_counter()
         self.agent_number += 1
-        self.agent_name='agent'+str(self.agent_number)
+        self.agent_name = 'agent'+str(self.agent_number)
         print(self.population.items())
-        #return fn(self.agent_name)
+        # return fn(self.agent_name)
 
-
-    def make_body(self,agent_name):
-
+    def make_body(self, agent_name):
         """creates agents for the world"""
         shape = BulletCapsuleShape(.35, 1, ZUp)
         shape2 = BulletCapsuleShape(.35, 1, ZUp)
         head = BulletSphereShape(.3)
         # nodepath---------------------------
-        body_node_path = self.worldNP.attachNewNode(BulletRigidBodyNode(agent_name))
+        body_node_path = self.worldNP.attachNewNode(
+            BulletRigidBodyNode(agent_name))
         # print(body_node_path)
         body_node_path.setPos(0, 0, 5)
         # body_node_path.set_scale(3)
@@ -282,47 +301,42 @@ class Yer(DirectObject):
         # node-------------------------------
         body_node = body_node_path.node()
         body_node.setMass(5)
-        body_node.addShape(shape, TransformState.makePosHpr(Point3(-.35, 0, 0), Point3(90, 0, 90)))
-        body_node.addShape(shape2, TransformState.makePosHpr(Point3(.35, 0, 0), Point3(90, 0, 90)))
+        body_node.addShape(shape, TransformState.makePosHpr(
+            Point3(-.35, 0, 0), Point3(90, 0, 90)))
+        body_node.addShape(shape2, TransformState.makePosHpr(
+            Point3(.35, 0, 0), Point3(90, 0, 90)))
         body_node.addShape(head, TransformState.makePos(Point3(0, .5, 1)))
         body_node.setFriction(0.5)
         # visual representation--------------
         visualNP = loader.loadModel('models/lilly.gltf')
         visualNP.set_scale(.5)
-        visualNP.setPos(0,0,0)
-        visualNP.setHpr(180,270,0)
+        visualNP.setPos(0, 0, 0)
+        visualNP.setHpr(180, 270, 0)
         materials = visualNP.findAllMaterials()
         materials[0].clearBaseColor()
 
         # BU NE?
         visualNP.clearModelNodes()
-        #BU NE?
+        # BU NE?
         visualNP.reparentTo(body_node_path)
         return agent_name, body_node_path, body_node
-       
-
-
-
-    
-
-    
 
 
 class Lillies(Yer):
 
-    def __init__(self,agent_name):  
+    def __init__(self, agent_name):
 
-        self.hearttime=0
-        # bullet notePath 'z' value 
-        self.my_z=0
+        self.hearttime = 0
+        # bullet notePath 'z' value
+        self.my_z = 0
         # self.lilly_11=lilly_11
-        self.home_bred=home_bred
+        self.home_bred = home_bred
         # print(self.lilly_11[0].values)
-        self.x_Force=0
-        self.y_Force=0
-        self.z_Force=0
-        self.z_Torque=0
-       
+        self.x_Force = 0
+        self.y_Force = 0
+        self.z_Force = 0
+        self.z_Torque = 0
+
         fb_prop = FrameBufferProperties()
         # Request 8 RGB bits, no alpha bits, and a depth buffer.
         fb_prop.setRgbColor(True)
@@ -333,77 +347,85 @@ class Lillies(Yer):
         win_prop = WindowProperties.size(240, 240)
         flags = GraphicsPipe.BF_refuse_window
         # flags = GraphicsPipe.BF_require_window
-        
+
         lens = PerspectiveLens()
-        self.my_buff=base.graphicsEngine.make_output(base.pipe,yer.agent_name+"_buffer", -100, fb_prop, win_prop, flags, base.win.getGsg(), base.win)
-        my_cam=base.makeCamera(self.my_buff,sort=6,displayRegion=(0.0, 1, 0, 1),camName=yer.agent_name+"_cam")
-        my_cam.setHpr(0,0,0)
-        my_cam.setPos(0,0,1)
+        self.my_buff = base.graphicsEngine.make_output(
+            base.pipe, yer.agent_name+"_buffer", -100, fb_prop, win_prop, flags, base.win.getGsg(), base.win)
+        my_cam = base.makeCamera(self.my_buff, sort=6, displayRegion=(
+            0.0, 1, 0, 1), camName=yer.agent_name+"_cam")
+        my_cam.setHpr(0, 0, 0)
+        my_cam.setPos(0, 0, 1)
         my_cam.node().setLens(lens)
         lens.setFov(100)
 
-        #make body of the agent
-        
-        agent_name, body_node_path, body_node= yer.make_body(agent_name)
-        self.my_path=body_node_path
-        self.body_node=body_node
+        # make body of the agent
+
+        agent_name, body_node_path, body_node = yer.make_body(agent_name)
+        self.my_path = body_node_path
+        self.body_node = body_node
         my_cam.reparentTo(body_node_path)
-        body_node_path.setPos(np.random.randint(-60,60), np.random.randint(-60,60),np.random.randint(2,5))
+        body_node_path.setPos(np.random.randint(-60, 60),
+                              np.random.randint(-60, 60), np.random.randint(2, 5))
         yer.world.attach(body_node)
 
         # removing except statement from  heart() and adding "renderFrame" may lead better performance TRY IT
         # base.graphicsEngine.renderFrame()
-        
-    def heart(self):   
 
-        now=perf_counter()
+    def heart(self):
 
-        if now-self.hearttime>.5:
+        now = perf_counter()
 
-            self.my_z=self.my_path.getZ()
+        if now-self.hearttime > .5:
+
+            self.my_z = self.my_path.getZ()
             # print('heartbeat')
             try:
-                my_output=self.my_buff.getActiveDisplayRegion(0).getScreenshot()
-                # for feeding neural net 
-                numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32)
+                my_output = self.my_buff.getActiveDisplayRegion(
+                    0).getScreenshot()
+                # for feeding neural net
+                numpy_image_data = np.array(
+                    my_output.getRamImageAs("RGB"), np.float32)
             except:
                 base.graphicsEngine.renderFrame()
                 print("except")
-                my_output=self.my_buff.getActiveDisplayRegion(0).getScreenshot()        
-                numpy_image_data=np.array(my_output.getRamImageAs("RGB"), np.float32)
-            # output neural net 
-            prediction=self.home_bred.home_bred_predict(numpy_image_data)
+                my_output = self.my_buff.getActiveDisplayRegion(
+                    0).getScreenshot()
+                numpy_image_data = np.array(
+                    my_output.getRamImageAs("RGB"), np.float32)
+            # output neural net
+            prediction = self.home_bred.home_bred_predict(numpy_image_data)
 
-            x_Force=prediction[0][0]
-            y_Force=prediction[0][1]
-            z_Force=prediction[0][2]
-            z_Torque=prediction[0][3]
+            x_Force = prediction[0][0]
+            y_Force = prediction[0][1]
+            z_Force = prediction[0][2]
+            z_Torque = prediction[0][3]
 
-            force=Vec3(x_Force,y_Force,z_Force)*100
-            torque=Vec3(0,0,z_Torque)*25
+            force = Vec3(x_Force, y_Force, z_Force)*100
+            torque = Vec3(0, 0, z_Torque)*25
 
-            force= yer.worldNP.getRelativeVector(self.my_path, force)
-            torque= yer.worldNP.getRelativeVector(self.my_path, torque)
+            force = yer.worldNP.getRelativeVector(self.my_path, force)
+            torque = yer.worldNP.getRelativeVector(self.my_path, torque)
             self.body_node.setActive(True)
             self.body_node.applyCentralForce(force)
             self.body_node.applyTorque(torque)
-            self.hearttime=perf_counter()
+            self.hearttime = perf_counter()
+
 
 class LilliesManual(Yer):
 
-    def __init__(self,agent_name):  
+    def __init__(self, agent_name):
 
-        self.hearttime=0
-        # bullet notePath 'z' value 
-        self.my_z=0
+        self.hearttime = 0
+        # bullet notePath 'z' value
+        self.my_z = 0
         # self.lilly_11=lilly_11
-        self.home_bred=home_bred
+        self.home_bred = home_bred
         # print(self.lilly_11[0].values)
         # self.x_Force=0
         # self.y_Force=0
         # self.z_Force=0
         # self.z_Torque=0
-       
+
         fb_prop = FrameBufferProperties()
         # Request 8 RGB bits, no alpha bits, and a depth buffer.
         fb_prop.setRgbColor(True)
@@ -414,75 +436,83 @@ class LilliesManual(Yer):
         win_prop = WindowProperties.size(240, 240)
         flags = GraphicsPipe.BF_refuse_window
         # flags = GraphicsPipe.BF_require_window
-        
+
         lens = PerspectiveLens()
-        self.my_buff=base.graphicsEngine.make_output(base.pipe,yer.agent_name+"_buffer", -100, fb_prop, win_prop, flags, base.win.getGsg(), base.win)
-        my_cam=base.makeCamera(self.my_buff,sort=6,displayRegion=(0.0, 1, 0, 1),camName=yer.agent_name+"_cam")
-        my_cam.setHpr(0,0,0)
-        my_cam.setPos(0,0,1)
+        self.my_buff = base.graphicsEngine.make_output(
+            base.pipe, yer.agent_name+"_buffer", -100, fb_prop, win_prop, flags, base.win.getGsg(), base.win)
+        my_cam = base.makeCamera(self.my_buff, sort=6, displayRegion=(
+            0.0, 1, 0, 1), camName=yer.agent_name+"_cam")
+        my_cam.setHpr(0, 0, 0)
+        my_cam.setPos(0, 0, 1)
         my_cam.node().setLens(lens)
         lens.setFov(100)
 
-        #make body of the agent
-        
-        agent_name, body_node_path, body_node= yer.make_body(agent_name)
-        self.my_path=body_node_path
-        self.body_node=body_node
+        # make body of the agent
+
+        agent_name, body_node_path, body_node = yer.make_body(agent_name)
+        self.my_path = body_node_path
+        self.body_node = body_node
         my_cam.reparentTo(body_node_path)
-        body_node_path.setPos(np.random.randint(-60,60), np.random.randint(-60,60),np.random.randint(2,5))
+        body_node_path.setPos(np.random.randint(-60, 60),
+                              np.random.randint(-60, 60), np.random.randint(2, 5))
         yer.world.attach(body_node)
 
         # removing except statement from  heart() and adding "renderFrame" may lead better performance TRY IT
         # base.graphicsEngine.renderFrame()
-        
-    def heart(self): 
 
-        self.my_z=self.my_path.getZ()
+    def heart(self):
+
+        self.my_z = self.my_path.getZ()
         # print('heartbeat')
         try:
-            my_output=self.my_buff.getActiveDisplayRegion(0).getScreenshot()
-            # for feeding neural net 
-            
+            my_output = self.my_buff.getActiveDisplayRegion(0).getScreenshot()
+            # for feeding neural net
+
         except:
             base.graphicsEngine.renderFrame()
             print("except")
-            my_output=self.my_buff.getActiveDisplayRegion(0).getScreenshot()        
+            my_output = self.my_buff.getActiveDisplayRegion(0).getScreenshot()
 
         force = Vec3(0, 0, 0)
-        torque = Vec3(0, 0, 0)    
+        torque = Vec3(0, 0, 0)
         # Manual Lillie------------------
-        
-        if inputState.isSet('forward'): force.setY( 1.0)
-        if inputState.isSet('reverse'): force.setY(-1.0)
-        if inputState.isSet('left'):    force.setX(-1.0)
-        if inputState.isSet('right'):   force.setX( 1.0)
-        
-        if inputState.isSet('turnLeft'):  torque.setZ( 1.0)
-        if inputState.isSet('turnRight'): torque.setZ(-1.0)
-        # Manual Lillie------------------ 
-        
-        
+
+        if inputState.isSet('forward'):
+            force.setY(1.0)
+        if inputState.isSet('reverse'):
+            force.setY(-1.0)
+        if inputState.isSet('left'):
+            force.setX(-1.0)
+        if inputState.isSet('right'):
+            force.setX(1.0)
+
+        if inputState.isSet('turnLeft'):
+            torque.setZ(1.0)
+        if inputState.isSet('turnRight'):
+            torque.setZ(-1.0)
+        # Manual Lillie------------------
+
         force *= 90.0
         torque *= 30.0
         # force=Vec3(x_Force,y_Force,0)*150
         # torque=Vec3(0,0,z_Torque)*40
 
-        force= yer.worldNP.getRelativeVector(self.my_path, force)
-        torque= yer.worldNP.getRelativeVector(self.my_path, torque)
+        force = yer.worldNP.getRelativeVector(self.my_path, force)
+        torque = yer.worldNP.getRelativeVector(self.my_path, torque)
         self.body_node.setActive(True)
         self.body_node.applyCentralForce(force)
         self.body_node.applyTorque(torque)
-        self.hearttime=perf_counter()
+        self.hearttime = perf_counter()
+
 
 yer = Yer()
 # this is manual controlled agent for debugging
 
-agent0=yer.agent_factory(LilliesManual)
-f=yer.food_maker()
+agent0 = yer.agent_factory(LilliesManual)
+f = yer.food_maker()
 
 
-
-
+"""
 print("WorldNP ALL Children")
 print(yer.worldNP.getChildren())
 
@@ -495,6 +525,6 @@ print("WORLD NP")
 print(yer.worldNP.findAllMatches("*"))
 
 print("A.J.A.N")
-print(yer.worldNP.find("*").node())
+print(yer.worldNP.find("*").node())"""
 
 base.run()
