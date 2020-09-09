@@ -143,40 +143,43 @@ class Yer(DirectObject):
         visualNPList={}
         npathList={}
         # based on approxiamate width of the landscape (hard-coded)
-        for i in range(-60, 61, 3):
-            for j in range(-60, 61, 3):
+        for i in range(-60, 61, 6):
+            for j in range(-60, 61, 6):
                 # 2d noise for scaling
                 
                 food_scale = food.noise2d(i/50, j/50)
                 # interpolated between (0-1)
                 food_scale = interp(food_scale, (-1, 1), (0, 1))
-                shape = BulletBoxShape(Vec3(dx*food_scale , dy*food_scale , dz*food_scale))
                 chance = food_scale * np.random.randint(0, 100)
-                
-                #if chance > 40:
-                    
-                
-                
-                npathList[i,j] = self.worldNP.attachNewNode(BulletRigidBodyNode('Box'))
-                
-                #visualNP.setPos(0,0,0)
-                
-                
-                
-                npathList[i,j].setPos(i, j, 4)
-                
-                npathList[i,j].node().setFriction(1)
-                npathList[i,j].node().setMass(5)
-                npathList[i,j].node().addShape(shape)
-                
-                
+                if chance > 50:
 
-                
-                npathList[i,j].setCollideMask(BitMask32.allOn())
-                self.world.attachRigidBody(npathList[i,j].node())
-                visualNPList[i,j] = loader.loadModel('models/cube.gltf')
-                visualNPList[i,j].set_scale(food_scale)
-                visualNPList[i,j].reparentTo(npathList[i,j])
+                    shape = BulletBoxShape(Vec3(dx*food_scale , dy*food_scale , dz*food_scale))
+                    
+                    
+                    #if chance > 40:
+                        
+                    
+                    
+                    npathList[i,j] = self.worldNP.attachNewNode(BulletRigidBodyNode('Box'))
+                    
+                    #visualNP.setPos(0,0,0)
+                    
+                    
+                    
+                    npathList[i,j].setPos(i, j, 4)
+                    
+                    npathList[i,j].node().setFriction(1)
+                    npathList[i,j].node().setMass(5)
+                    npathList[i,j].node().addShape(shape)
+                    
+                    
+
+                    
+                    npathList[i,j].setCollideMask(BitMask32.allOn())
+                    self.world.attachRigidBody(npathList[i,j].node())
+                    visualNPList[i,j] = loader.loadModel('models/cube.gltf')
+                    visualNPList[i,j].set_scale(food_scale)
+                    visualNPList[i,j].reparentTo(npathList[i,j])
         
                 
 
