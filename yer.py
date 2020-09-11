@@ -63,8 +63,13 @@ class Yer(DirectObject):
         self.loop_counter = 0
         self.remove_this = 'agent0'
         self.agent_name = 'agent0'
+        
         self.agent_number = 0
+        # list of food pieces
+        self.food_piece_np={}
+        # list of agents
         self.population = {}
+        #gltf loader instead of native loader (must be installed first)
         gltf.patch_loader(base.loader)
         # create a rendering window
         wp = WindowProperties()
@@ -99,7 +104,7 @@ class Yer(DirectObject):
         self.accept('f3', self.toggleDebug)
 
         # remove a agent
-        self.accept('k', self.remove_agent, [self.remove_this])
+        #self.accept('k', self.remove_agent, [self.remove_this])
         # add an agent
         self.accept('n', self.agent_factory, [Lillies])
 
@@ -113,73 +118,76 @@ class Yer(DirectObject):
         inputState.watchWithModifiers('pulse', 'p')
         inputState.watchWithModifiers('jump', 'j')
 
-        # this is Temporary for [foodPiece] collision
-        # taskMgr.add(self.who_eats, 'who_eats')
-        # shape = BulletBoxShape(Vec3(1, 1, 1))
-        # food = BulletGhostNode('food')
-        # food.addShape(shape)
-        # self.food_np = render.attachNewNode(food)
-        # node=self.food_np.node()
+        #initial food supply
+        self.food_maker()
 
-        # self.food_np.setPos(0, 0, 2.2)
-        # self.food_np.setCollideMask(BitMask32(0x0f))
-        # self.world.attachGhost(food)
+    
+    
+    
+    # check every pieces of food in every frame and checks every agents agains it
+    def eats(self):
+        if self.food_piece_np:
+            for key in self.food_piece_np:
+                food =self.food_piece_np[key][0].node()
 
-    # this is for [foodPiece] collision (Ghost object)
-    # def who_eats(self, task):
-    #     food =self.food_np.node()
-    #     print(food.getNumOverlappingNodes())
-    #     for node in food.getOverlappingNodes():
-    #         print(node)
+                # iterates over all overlapping nodes with that piece which is one most of the time
+                for agent_node in food.getOverlappingNodes():
+                    #prints node (which is agent) and food piece node
+                    print(agent_node,self.food_piece_np[key][0].node())
+                    print(self.food_piece_np[key][1])
 
-    #     return task.cont
+                    #gets the name of the agent for updating life in population dictionary
+                    agent_name=agent_node.getName()
+                    # updates the life
+                    self.population[agent_name][1]+=10
+                    self.food_piece_np[key][1] +=1
+
 
     def food_maker(self):
+        # dictionary {"food id" ,[food object, number of time eaten]}
         dx = .5
         dy = .5
         dz = .5
         #shape = BulletBoxShape(Vec3(dx, dy, dz))
         food = OpenSimplex(seed=1)
         visualNPList={}
-        npathList={}
+        
         # based on approxiamate width of the landscape (hard-coded)
         for i in range(-60, 61, 6):
             for j in range(-60, 61, 6):
                 # 2d noise for scaling
-                
                 food_scale = food.noise2d(i/50, j/50)
                 # interpolated between (0-1)
                 food_scale = interp(food_scale, (-1, 1), (0, 1))
                 chance = food_scale * np.random.randint(0, 100)
+                # made it string to keep the consisteny with population dictionary (name,[object,data])
+                food_id="Box"+str(i)+str(j)
                 if chance > 50:
-
                     shape = BulletBoxShape(Vec3(dx*food_scale , dy*food_scale , dz*food_scale))
-                    
-                    
-                    #if chance > 40:
-                        
-                    
-                    
-                    npathList[i,j] = self.worldNP.attachNewNode(BulletRigidBodyNode('Box'))
-                    
-                    #visualNP.setPos(0,0,0)
-                    
-                    
-                    
-                    npathList[i,j].setPos(i, j, 4)
-                    
-                    npathList[i,j].node().setFriction(1)
-                    npathList[i,j].node().setMass(5)
-                    npathList[i,j].node().addShape(shape)
-                    
-                    
-
-                    
-                    npathList[i,j].setCollideMask(BitMask32.allOn())
-                    self.world.attachRigidBody(npathList[i,j].node())
-                    visualNPList[i,j] = loader.loadModel('models/cube.gltf')
-                    visualNPList[i,j].set_scale(food_scale)
-                    visualNPList[i,j].reparentTo(npathList[i,j])
+                    self.food_piece_np[food_id] = [self.worldNP.attachNewNode(BulletGhostNode('Box'+str(i)+str(j))),0]
+                    self.food_piece_np[food_id][0].setPos(i, j, 4)                    
+                    self.food_piece_np[food_id][0].node().setFriction(1)
+                    #self.food_piece_np[food_id].node().setMass(5)
+                    self.food_piece_np[food_id][0].node().addShape(shape) 
+                    self.food_piece_np[food_id][0].setCollideMask(BitMask32.bit(1))
+                    self.world.attachGhost(self.food_piece_np[food_id][0].node())
+                    z = self.food_piece_np[food_id][0].getZ()
+                    pFrom = Point3(i,j,z)
+                    pTo = Point3(i,j,z*-50)
+                    # this is the hit object, from food piece(cube) to ground
+                    result = self.world.rayTestClosest(pFrom, pTo)
+                    # print(result.hasHit())
+                    # print(result.getHitPos())
+                    # print(result.getHitPos()[0])
+                    # print(result.getHitNormal())
+                    # print(result.getHitFraction())
+                    print(result.getNode())
+                    # (dy*food_scale/2) this is for keeping food over the surfaces a bit.
+                    self.food_piece_np[food_id][0].setPos(i, j, result.getHitPos()[2]+dy*food_scale/2)
+                    # self.food_piece_np[food_id].setPos(i, j, result.getHitPos()[2])
+                    visualNPList[food_id] = loader.loadModel('models/cube.gltf')
+                    visualNPList[food_id].set_scale(food_scale)
+                    visualNPList[food_id].reparentTo(self.food_piece_np[food_id][0])
         
                 
 
@@ -215,7 +223,7 @@ class Yer(DirectObject):
         np.setPos(0, 0, 0)
         np.set_scale(2)
         np.node().setFriction(.5)
-        np.setCollideMask(BitMask32.allOn())
+        np.setCollideMask(BitMask32.bit(2))
         self.world.attach(np.node())
         self.hf = np.node()  # To enable/disable debug visualisation
         self.terrain = GeoMipTerrain('terrain')
@@ -235,44 +243,51 @@ class Yer(DirectObject):
         self.terrain.generate()
 
     def life_checker(self):
-
         now = perf_counter()
-
         # TODO: the lifechecker checks and make agent's heart beat in every frame in below loop
         # but it is not efficient, maybe only one of them is enough.
         # it is possible with generator or something
 
         # self.loop_counter=now
-        for i in self.population:
+        for i,_ in self.population.items():
             # print('heartbeat')
             # heartbeat of the agent            #
-
+            #print(type(i),i)
             self.population[i][0].heart()
             # current height
             my_z = self.population[i][0].my_z
             # 'elapsed'current age for the agent
             elapsed = now-self.population[i][1]
 
-            if (elapsed > 1000) or (my_z < -10):
-                print(i)
-                self.remove_agent(i)
+            if (elapsed > 10) or (my_z < -10):
+                
+                self.remove_agent(i,self.population)
                 # very nice break, just breaks the loop after removing agent so no dictionary error
                 break
+        #checks how many times eaten an removes after one time
+
+        for p,r in self.food_piece_np.items():
+            if r[1]>0:                
+                self.remove_agent(p,self.food_piece_np)
+                break
+            #print (type(p),p,r)
+
 
     def update(self, task):
         dt = globalClock.getDt()
         self.world.doPhysics(dt)
         self.life_checker()
+        self.eats()
 
         return task.cont
 
-    def remove_agent(self, remove_this):
+    def remove_agent(self, remove_this,fromhere):
 
         print(f'removed agent: {self.worldNP.find(remove_this)}')
 
         if not self.worldNP.find(remove_this).isEmpty():
             # this is pyhon Lilly Class instance in the population dictionary
-            del self.population[remove_this]
+            del fromhere[remove_this]
             # this is PyBullet Node
             self.world.remove(self.worldNP.find(remove_this).node())
             # this is PyBullet NodePath
@@ -283,7 +298,7 @@ class Yer(DirectObject):
         # add this instance to population dictionary in the yer
         agent = fn(self.agent_name)
 
-        self.population[self.agent_name] = agent, time.perf_counter()
+        self.population[self.agent_name] = [agent, time.perf_counter()]        
         self.agent_number += 1
         self.agent_name = 'agent'+str(self.agent_number)
         print(self.population.items())
@@ -512,7 +527,7 @@ yer = Yer()
 # this is manual controlled agent for debugging
 
 agent0 = yer.agent_factory(LilliesManual)
-f = yer.food_maker()
+#f = yer.food_maker()
 
 
 """
