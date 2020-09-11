@@ -61,11 +61,11 @@ class Yer(DirectObject):
 
     def __init__(self):
         self.loop_counter = 0
+        #initial values for creation and removal for first agent (manual controlled agent)
         self.remove_this = 'agent0'
-        self.agent_name = 'agent0'
-        
+        self.agent_name = 'agent0'        
         self.agent_number = 0
-        # list of food pieces
+        # list of food pieces, dictionary {"food id" ,[food object, number of time eaten]}
         self.food_piece_np={}
         # list of agents
         self.population = {}
@@ -124,34 +124,34 @@ class Yer(DirectObject):
     
     
     
-    # check every pieces of food in every frame and checks every agents agains it
+    # check every pieces of food in every frame and checks every agents
+    # TODO this could be a yielding fuction, each time we can run it only one of  the piece
+    # I guess it is enough.
     def eats(self):
         if self.food_piece_np:
             for key in self.food_piece_np:
                 food =self.food_piece_np[key][0].node()
-
                 # iterates over all overlapping nodes with that piece which is one most of the time
                 for agent_node in food.getOverlappingNodes():
                     #prints node (which is agent) and food piece node
-                    print(agent_node,self.food_piece_np[key][0].node())
-                    print(self.food_piece_np[key][1])
-
+                    # print(agent_node,self.food_piece_np[key][0].node())
+                    # print(self.food_piece_np[key][1])
                     #gets the name of the agent for updating life in population dictionary
                     agent_name=agent_node.getName()
                     # updates the life
                     self.population[agent_name][1]+=10
+                    # updates the number of bites taken from a particular food piece
                     self.food_piece_np[key][1] +=1
 
 
     def food_maker(self):
-        # dictionary {"food id" ,[food object, number of time eaten]}
+        
         dx = .5
         dy = .5
         dz = .5
-        #shape = BulletBoxShape(Vec3(dx, dy, dz))
         food = OpenSimplex(seed=1)
         visualNPList={}
-        
+
         # based on approxiamate width of the landscape (hard-coded)
         for i in range(-60, 61, 6):
             for j in range(-60, 61, 6):
@@ -164,14 +164,20 @@ class Yer(DirectObject):
                 food_id="Box"+str(i)+str(j)
                 if chance > 50:
                     shape = BulletBoxShape(Vec3(dx*food_scale , dy*food_scale , dz*food_scale))
-                    self.food_piece_np[food_id] = [self.worldNP.attachNewNode(BulletGhostNode('Box'+str(i)+str(j))),0]
+                    """this row creates a GhostNode and adds '0' as number of bite eaten by agent to a list,
+                     then put this list in a food_piece_np dictionary."""
+                    self.food_piece_np[food_id] = [self.worldNP.attachNewNode(BulletGhostNode(food_id)),0]
+                    # initial position for ghost node
                     self.food_piece_np[food_id][0].setPos(i, j, 4)                    
                     self.food_piece_np[food_id][0].node().setFriction(1)
-                    #self.food_piece_np[food_id].node().setMass(5)
                     self.food_piece_np[food_id][0].node().addShape(shape) 
+                    # set the mask to one to prevent contact between terrain and food
                     self.food_piece_np[food_id][0].setCollideMask(BitMask32.bit(1))
+                    #add node to the world
                     self.world.attachGhost(self.food_piece_np[food_id][0].node())
+                    # get current position of the food (it is in sky)
                     z = self.food_piece_np[food_id][0].getZ()
+                    # find terrain surface
                     pFrom = Point3(i,j,z)
                     pTo = Point3(i,j,z*-50)
                     # this is the hit object, from food piece(cube) to ground
@@ -181,10 +187,10 @@ class Yer(DirectObject):
                     # print(result.getHitPos()[0])
                     # print(result.getHitNormal())
                     # print(result.getHitFraction())
-                    print(result.getNode())
+                    # print(result.getNode())                    
                     # (dy*food_scale/2) this is for keeping food over the surfaces a bit.
                     self.food_piece_np[food_id][0].setPos(i, j, result.getHitPos()[2]+dy*food_scale/2)
-                    # self.food_piece_np[food_id].setPos(i, j, result.getHitPos()[2])
+                    # this is the visual for the cube                     
                     visualNPList[food_id] = loader.loadModel('models/cube.gltf')
                     visualNPList[food_id].set_scale(food_scale)
                     visualNPList[food_id].reparentTo(self.food_piece_np[food_id][0])
@@ -282,16 +288,21 @@ class Yer(DirectObject):
         return task.cont
 
     def remove_agent(self, remove_this,fromhere):
+        """ this fuction removes agents and foods from environment
+        also removes relevant nodes and nodepatths(not sure about notePaths))"""
 
+        np=self.worldNP.find(remove_this)
+        #print(np,type(np))
         print(f'removed agent: {self.worldNP.find(remove_this)}')
 
         if not self.worldNP.find(remove_this).isEmpty():
             # this is pyhon Lilly Class instance in the population dictionary
             del fromhere[remove_this]
-            # this is PyBullet Node
-            self.world.remove(self.worldNP.find(remove_this).node())
-            # this is PyBullet NodePath
-            self.worldNP.find(remove_this).detachNode()
+            # this is removes PyBullet Node
+            self.world.remove(np.node())
+            # this removes nodePath.....check print statement
+            np.removeNode()
+            #print(np)
 
     def agent_factory(self, fn):
 
