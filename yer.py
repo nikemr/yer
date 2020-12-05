@@ -25,13 +25,13 @@ from panda3d.core import GraphicsOutput
 from panda3d.core import Texture
 from panda3d.core import Camera
 from panda3d.core import PerspectiveLens
+from panda3d.core import Material
 import gltf
 # from panda3d.core import PandaNode
 
 from panda3d.core import FrameBufferProperties
 from panda3d.core import GraphicsBuffer
 from panda3d.core import GraphicsPipe
-
 from panda3d.bullet import BulletGhostNode
 from panda3d.bullet import BulletWorld
 from panda3d.bullet import BulletPlaneShape
@@ -152,7 +152,14 @@ class Yer(DirectObject):
         food = OpenSimplex(seed=1)
         visualNPList={}
 
+        myMaterial = Material()
+        myMaterial.setShininess(5.0) #Make this material shiny
+        myMaterial.setAmbient((1, 0, 1, 1)) #Make this material blue
+
+        
+        
         # based on approxiamate width of the landscape (hard-coded)
+
         for i in range(-60, 61, 6):
             for j in range(-60, 61, 6):
                 # 2d noise for scaling
@@ -193,6 +200,9 @@ class Yer(DirectObject):
                     # this is the visual for the cube                     
                     visualNPList[food_id] = loader.loadModel('models/cube.gltf')
                     visualNPList[food_id].set_scale(food_scale)
+
+                    visualNPList[food_id].setMaterial(myMaterial)
+
                     visualNPList[food_id].reparentTo(self.food_piece_np[food_id][0])
         
                 
@@ -265,13 +275,12 @@ class Yer(DirectObject):
             # 'elapsed'current age for the agent
             elapsed = now-self.population[i][1]
 
-            if (elapsed > 10) or (my_z < -10):
+            if (elapsed > 50) or (my_z < -10):
                 
                 self.remove_agent(i,self.population)
                 # very nice break, just breaks the loop after removing agent so no dictionary error
                 break
-        #checks how many times eaten an removes after one time
-
+        #checks how many times eaten and removes after one time
         for p,r in self.food_piece_np.items():
             if r[1]>0:                
                 self.remove_agent(p,self.food_piece_np)
