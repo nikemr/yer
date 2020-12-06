@@ -60,7 +60,7 @@ base = ShowBase()
 class Yer(DirectObject):
 
     def __init__(self):
-
+        
         self.loop_counter = 0
         #initial values for creation and removal for first agent (manual controlled agent)
         self.remove_this = 'agent0'
@@ -68,8 +68,9 @@ class Yer(DirectObject):
         self.agent_number = 0
         # list of food pieces, dictionary {"food id" ,[food object, number of time eaten]}
         self.food_piece_np={}
-        # list of agents
+        # list of agents, dictionary {"agent_name" ,[agent object, agent_age]}
         self.population = {}
+        self.best_brains=[]
         #gltf loader instead of native loader (must be installed first)
         gltf.patch_loader(base.loader)
         # create a rendering window
@@ -260,6 +261,17 @@ class Yer(DirectObject):
         rootNP.setPos(-offset * 2, -offset * 2, -height)
         self.terrain.generate()
 
+
+
+
+    def brains(self):
+        ''' returns the name of the oldest individual'''
+        # it should be revised to return best brain model not name
+        now = perf_counter()
+        best_brains= sorted(self.population.items(), key = (lambda item: now - (item[1][1])),reverse=True)
+        # name of the oldest individual
+        return best_brains[0][0]
+
     def life_checker(self):
         now = perf_counter()
         # TODO: the lifechecker checks and make agent's heart beat in every frame in below loop
@@ -267,21 +279,30 @@ class Yer(DirectObject):
         # it is possible with generator or something
 
         # self.loop_counter=now
-        for i,_ in self.population.items():
+
+        for name,_ in self.population.items():
             # print('heartbeat')
             # heartbeat of the agent            #
             #print(type(i),i)
-            self.population[i][0].heart()
+            self.population[name][0].heart()
             # current height
-            my_z = self.population[i][0].my_z
+            my_z = self.population[name][0].my_z
             # 'elapsed'current age for the agent
-            elapsed = now-self.population[i][1]
+            elapsed = now-self.population[name][1]
 
             if (elapsed > 50) or (my_z < -10):
                 
-                self.remove_agent(i,self.population)
+                
+                self.remove_agent(name,self.population)
+
+                # REMOVE THIS, IT IS FOR A TEST, TO GET BEST BRAIN IN THE LINE (name of the agent)
+                # REMOVE THIS, IT IS FOR A TEST, TO GET BEST BRAIN IN THE LINE (name of the agent)
+                print(self.brains())
                 # very nice break, just breaks the loop after removing agent so no dictionary error
                 break
+        
+        
+        # FOOD
         #checks how many times eaten and removes after one time
         for p,r in self.food_piece_np.items():
             if r[1]>0:                
@@ -362,6 +383,7 @@ class Yer(DirectObject):
         return agent_name, body_node_path, body_node
 
 
+
 class Lillies(Yer):
 
     def __init__(self, agent_name):
@@ -371,6 +393,7 @@ class Lillies(Yer):
         self.my_z = 0
         # self.lilly_11=lilly_11
         self.brain = lilly_11
+        print(self.brain.model)
         # print(self.lilly_11[0].values)
         self.x_Force = 0
         self.y_Force = 0
