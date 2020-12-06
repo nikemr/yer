@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import torchvision.models as models
 import torch.nn as nn
-model_transfer = models.vgg11(pretrained=True)
+model = models.vgg11(pretrained=True)
 
 from PIL import Image
 import torchvision.transforms as transforms
@@ -48,9 +48,9 @@ def predict(np_im):
     ## Return the *index* of the predicted class for that image
     
     if use_cuda:
-        model_transfer.cuda()
+        model.cuda()
     
-    model_transfer.eval()    
+    model.eval()    
     
     with torch.no_grad():
        
@@ -62,7 +62,7 @@ def predict(np_im):
         image = image.unsqueeze(0)
         #print(image.shape)
         
-        output = model_transfer.forward(image)
+        output = model.forward(image)
         output =output.cpu().detach().numpy()
         #ps = torch.exp(logps)
         #_,cls_idx=torch.max(output, 1)
@@ -73,21 +73,21 @@ def predict(np_im):
     
     return output
 
-# print(model_transfer)
+# print(model)
 
-for param in model_transfer.features.parameters():
+for param in model.features.parameters():
     param.requires_grad = False
     
 #number thrusters on the Lilly   
 thruster=4
 first_layer= nn.Linear(25088, 2048)
-model_transfer.classifier[0] = first_layer
+model.classifier[0] = first_layer
 # new layers automatically have requires_grad = True
 second_layer= nn.Linear(2048, 1024)
-model_transfer.classifier[3] = second_layer
+model.classifier[3] = second_layer
 
 last_layer = nn.Linear(1024, thruster)
-model_transfer.classifier[6] = last_layer
+model.classifier[6] = last_layer
 
 # check if CUDA is available
 use_cuda = torch.cuda.is_available()
@@ -95,8 +95,8 @@ print("cudaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 print(use_cuda)
 # move model to GPU if CUDA is available
 if use_cuda:
-    model_transfer = model_transfer.cuda()
+    model = model.cuda()
     
-print(model_transfer)
+print(model)
 # predict_that=VGG16_predict("MYBUFFER.jpg")
 # print(predict_that)    
