@@ -1,5 +1,4 @@
 import torch
-
 import numpy as np
 from numpy import interp as interp
 
@@ -45,8 +44,9 @@ from panda3d.bullet import ZUp
 from panda3d.bullet import BulletCharacterControllerNode
 from panda3d.core import GraphicsEngine
 
-# import lilly_11
-import home_bred
+import lilly_11
+
+# import home_bred
 # import puddle
 # import ernie
 import time
@@ -60,6 +60,7 @@ base = ShowBase()
 class Yer(DirectObject):
 
     def __init__(self):
+
         self.loop_counter = 0
         #initial values for creation and removal for first agent (manual controlled agent)
         self.remove_this = 'agent0'
@@ -106,7 +107,6 @@ class Yer(DirectObject):
         # remove a agent
         #self.accept('k', self.remove_agent, [self.remove_this])
         # add an agent
-        self.accept('n', self.agent_factory, [Lillies])
 
         # manual agent control ----------------------
         inputState.watchWithModifiers('forward', 'w')
@@ -118,6 +118,8 @@ class Yer(DirectObject):
         inputState.watchWithModifiers('pulse', 'p')
         inputState.watchWithModifiers('jump', 'j')
 
+        # create a new duck
+        self.accept('n', self.agent_factory, [Lillies])
         #initial food supply
         self.food_maker()
 
@@ -368,7 +370,7 @@ class Lillies(Yer):
         # bullet notePath 'z' value
         self.my_z = 0
         # self.lilly_11=lilly_11
-        self.home_bred = home_bred
+        self.brain = lilly_11
         # print(self.lilly_11[0].values)
         self.x_Force = 0
         self.y_Force = 0
@@ -407,7 +409,7 @@ class Lillies(Yer):
         yer.world.attach(body_node)
 
         # removing except statement from  heart() and adding "renderFrame" may lead better performance TRY IT
-        # base.graphicsEngine.renderFrame()
+        base.graphicsEngine.renderFrame()
 
     def heart(self):
 
@@ -416,22 +418,31 @@ class Lillies(Yer):
         if now-self.hearttime > .5:
 
             self.my_z = self.my_path.getZ()
-            # print('heartbeat')
-            try:
-                my_output = self.my_buff.getActiveDisplayRegion(
-                    0).getScreenshot()
+            my_output = self.my_buff.getActiveDisplayRegion(0).getScreenshot()
                 # for feeding neural net
-                numpy_image_data = np.array(
-                    my_output.getRamImageAs("RGB"), np.float32)
-            except:
-                base.graphicsEngine.renderFrame()
-                print("except")
-                my_output = self.my_buff.getActiveDisplayRegion(
-                    0).getScreenshot()
-                numpy_image_data = np.array(
-                    my_output.getRamImageAs("RGB"), np.float32)
-            # output neural net
-            prediction = self.home_bred.home_bred_predict(numpy_image_data)
+            numpy_image_data = np.array(my_output.getRamImageAs("RGB"), np.float32)
+            
+            # print('heartbeat')
+
+
+            # I removed this try/except part because it slows down all process (pyhon try/except is very slow)
+            # instead I add renderFrame to _init_ to solve the error (if you try to get screenShot before creating cam)
+            
+            # try:
+            #     my_output = self.my_buff.getActiveDisplayRegion(
+            #         0).getScreenshot()
+            #     # for feeding neural net
+            #     numpy_image_data = np.array(
+            #         my_output.getRamImageAs("RGB"), np.float32)
+            # except:
+            #     base.graphicsEngine.renderFrame()
+            #     print("except")
+            #     my_output = self.my_buff.getActiveDisplayRegion(
+            #         0).getScreenshot()
+            #     numpy_image_data = np.array(
+            #         my_output.getRamImageAs("RGB"), np.float32)
+            # # output neural net
+            prediction = self.brain.predict(numpy_image_data)
 
             x_Force = prediction[0][0]
             y_Force = prediction[0][1]
@@ -457,7 +468,7 @@ class LilliesManual(Yer):
         # bullet notePath 'z' value
         self.my_z = 0
         # self.lilly_11=lilly_11
-        self.home_bred = home_bred
+        # self.home_bred = home_bred
         # print(self.lilly_11[0].values)
         # self.x_Force=0
         # self.y_Force=0
