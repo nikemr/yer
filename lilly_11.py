@@ -12,26 +12,6 @@ from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
-# ORIGINAL FUCTION --------------------------------------------------------------------------------------
-# def process_image(img_path):
-#     ''' Scales, crops, and normalizes a PIL image for a PyTorch model,
-#         returns an Numpy array
-#     '''
-#     pil_im = Image.open(img_path, 'r')
-
-#     pil_im.thumbnail((240,240))
-#     #pil_im=pil_im.crop((16,16,240,240))
-
-
-#     #ish(np.asarray(pil_im))
-#     np_image = np.array(pil_im)
-    
-#     #couldn't make it the other way
-#     transformations = transforms.Compose([transforms.ToTensor(),transforms.Normalize((0.485, 0.456, 0.406),
-#                                                                (0.229, 0.224, 0.225))])
-#     np_image = transformations(np_image).float()    
-#     return np_image
-
 def process_image(np_im):
     ''' Scales, crops, and normalizes a PIL image for a PyTorch model,
         returns an Numpy array
@@ -51,7 +31,7 @@ def process_image(np_im):
     torch_image = transformations(np_im).float()    
     return torch_image
 
-def lilly11_predict(np_im):
+def predict(np_im):
     '''
     Use pre-trained VGG-16 model to obtain index corresponding to 
     predicted ImageNet class for image at specified path
@@ -87,10 +67,7 @@ def lilly11_predict(np_im):
         #ps = torch.exp(logps)
         #_,cls_idx=torch.max(output, 1)
         #probs_tensor, classes_tensor = ps.topk(1,dim=1)
-       
-        
-              
-            
+
     #return probs_tensor, classes_tensor    
     #return cls_idx.item()
     
