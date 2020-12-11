@@ -26,7 +26,7 @@ def process_image(np_im):
     #np_image = np.array(pil_im)
     
     #couldn't make it the other way
-    np_im=np_im.reshape(240,240,3)
+    np_im=np_im.reshape(224,224,3)
     transformations = transforms.Compose([transforms.ToTensor()])
     torch_image = transformations(np_im).float()    
     return torch_image
@@ -99,4 +99,10 @@ if use_cuda:
     
 print(model)
 # predict_that=VGG16_predict("MYBUFFER.jpg")
-# print(predict_that)    
+# print(predict_that) 
+# 
+#    
+# model.classifier.modules()
+# for param in model.classifier.modules():
+#     if type(param) == nn.Linear:
+#         print(type(param))
