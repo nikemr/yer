@@ -44,9 +44,10 @@ from panda3d.bullet import ZUp
 from panda3d.bullet import BulletCharacterControllerNode
 from panda3d.core import GraphicsEngine
 
-import lilly_11
+# import lilly_11
+# import Efficie
 
-# import home_bred
+import small_net
 # import puddle
 # import ernie
 import time
@@ -392,8 +393,8 @@ class Lillies(Yer):
         # bullet notePath 'z' value
         self.my_z = 0
         # self.lilly_11=lilly_11
-        self.brain = lilly_11
-        print(self.brain.model)
+        self.brain = small_net
+        #print(self.brain.model)
         # print(self.lilly_11[0].values)
         self.x_Force = 0
         self.y_Force = 0
@@ -407,7 +408,7 @@ class Lillies(Yer):
         fb_prop.setRgbaBits(8, 8, 8, 0)
         fb_prop.setDepthBits(16)
         # Create a WindowProperties object set to 256x256 size.
-        win_prop = WindowProperties.size(240, 240)
+        win_prop = WindowProperties.size(224, 224)
         flags = GraphicsPipe.BF_refuse_window
         # flags = GraphicsPipe.BF_require_window
 
@@ -472,8 +473,8 @@ class Lillies(Yer):
             z_Force = prediction[0][2]
             z_Torque = prediction[0][3]
 
-            force = Vec3(x_Force, y_Force, z_Force)*100
-            torque = Vec3(0, 0, z_Torque)*25
+            force = Vec3(x_Force, y_Force, z_Force)*50
+            torque = Vec3(0, 0, z_Torque)*10
 
             force = yer.worldNP.getRelativeVector(self.my_path, force)
             torque = yer.worldNP.getRelativeVector(self.my_path, torque)
@@ -505,7 +506,7 @@ class LilliesManual(Yer):
         fb_prop.setRgbaBits(8, 8, 8, 0)
         fb_prop.setDepthBits(16)
         # Create a WindowProperties object set to 256x256 size.
-        win_prop = WindowProperties.size(240, 240)
+        win_prop = WindowProperties.size(224, 224)
         flags = GraphicsPipe.BF_refuse_window
         # flags = GraphicsPipe.BF_require_window
 
@@ -564,8 +565,8 @@ class LilliesManual(Yer):
             torque.setZ(-1.0)
         # Manual Lillie------------------
 
-        force *= 90.0
-        torque *= 30.0
+        force *= 3.0
+        torque *= 1.0
         # force=Vec3(x_Force,y_Force,0)*150
         # torque=Vec3(0,0,z_Torque)*40
 
