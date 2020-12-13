@@ -44,9 +44,11 @@ class Resnet18(nn.Module):
         
         self.classifier_layer = nn.Sequential(
             nn.Linear(512 , 256),
-            nn.BatchNorm1d(256),
-            nn.Dropout(0.2),
+            # nn.BatchNorm1d(256),
+            # nn.Dropout(0.2),
+            nn.ReLU(),
             nn.Linear(256 , 128),
+            nn.ReLU(),
             nn.Linear(128 , 4)
         )
         
@@ -132,6 +134,6 @@ for param in model.model.parameters():
 if use_cuda:
     model = model.cuda()
 
-
+print(model)
 
 
