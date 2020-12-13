@@ -298,7 +298,7 @@ class Yer(DirectObject):
 
                 # REMOVE THIS, IT IS FOR A TEST, TO GET BEST BRAIN IN THE LINE (name of the agent)
                 # REMOVE THIS, IT IS FOR A TEST, TO GET BEST BRAIN IN THE LINE (name of the agent)
-                print(self.brains())
+                # print(self.brains())
                 # very nice break, just breaks the loop after removing agent so no dictionary error
                 break
         
@@ -473,8 +473,8 @@ class Lillies(Yer):
             z_Force = prediction[0][2]
             z_Torque = prediction[0][3]
 
-            force = Vec3(x_Force, y_Force, z_Force)*50
-            torque = Vec3(0, 0, z_Torque)*10
+            force = Vec3(x_Force, y_Force, z_Force)*20
+            torque = Vec3(0, 0, z_Torque)*3
 
             force = yer.worldNP.getRelativeVector(self.my_path, force)
             torque = yer.worldNP.getRelativeVector(self.my_path, torque)
@@ -506,9 +506,9 @@ class LilliesManual(Yer):
         fb_prop.setRgbaBits(8, 8, 8, 0)
         fb_prop.setDepthBits(16)
         # Create a WindowProperties object set to 256x256 size.
-        win_prop = WindowProperties.size(224, 224)
-        flags = GraphicsPipe.BF_refuse_window
-        # flags = GraphicsPipe.BF_require_window
+        win_prop = WindowProperties.size(128, 128)
+        # flags = GraphicsPipe.BF_refuse_window
+        flags = GraphicsPipe.BF_require_window
 
         lens = PerspectiveLens()
         self.my_buff = base.graphicsEngine.make_output(
@@ -565,8 +565,8 @@ class LilliesManual(Yer):
             torque.setZ(-1.0)
         # Manual Lillie------------------
 
-        force *= 3.0
-        torque *= 1.0
+        force *= 30.0
+        torque *= 10.0
         # force=Vec3(x_Force,y_Force,0)*150
         # torque=Vec3(0,0,z_Torque)*40
 
