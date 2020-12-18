@@ -70,7 +70,10 @@ class Yer(DirectObject):
         # list of food pieces, dictionary {"food id" ,[food object, number of time eaten]}
         self.food_piece_np={}
         # list of agents, dictionary {"agent_name" ,[agent object, agent_age]}
-        self.population = {}
+        self.population = []
+        # self.population_iter = iter(self.population)
+        # self.population_iter= iter(self.population.items())
+        
         self.best_brains=[]
         #gltf loader instead of native loader (must be installed first)
         gltf.patch_loader(base.loader)
@@ -103,6 +106,8 @@ class Yer(DirectObject):
         self.landscape()
 
         taskMgr.add(self.update, 'updateWorld')
+        
+        taskMgr.add(self.test_update, 'test_update')
 
         self.accept('f3', self.toggleDebug)
 
@@ -273,50 +278,98 @@ class Yer(DirectObject):
         # name of the oldest individual
         return best_brains[0][0]
 
-    def life_checker(self):
+    # def life_checker(self):
+    #     now = perf_counter()
+    #     # TODO: the lifechecker checks and make agent's heart beat in every frame in below loop
+    #     # but it is not efficient, maybe only one of them is enough.
+    #     # it is possible with generator or something
+
+    #     # self.loop_counter=now
+
+    #     for name,_ in self.population.items():
+    #         # print('heartbeat')
+    #         # heartbeat of the agent            #
+    #         #print(type(i),i)
+    #         self.population[name][0].heart()
+    #         # current height
+    #         my_z = self.population[name][0].my_z
+    #         # 'elapsed'current age for the agent
+    #         elapsed = now-self.population[name][1]
+
+    #         if (elapsed > 50) or (my_z < -10):
+                
+                
+    #             self.remove_agent(name,self.population)
+
+    #             # REMOVE THIS, IT IS FOR A TEST, TO GET BEST BRAIN IN THE LINE (name of the agent)
+    #             # REMOVE THIS, IT IS FOR A TEST, TO GET BEST BRAIN IN THE LINE (name of the agent)
+    #             # print(self.brains())
+    #             # very nice break, just breaks the loop after removing agent so no dictionary error
+    #             break
+        
+        
+    #     # FOOD
+    #     #checks how many times eaten and removes after one time
+    #     for p,r in self.food_piece_np.items():
+    #         if r[1]>0:                
+    #             self.remove_agent(p,self.food_piece_np)
+    #             break
+    #         #print (type(p),p,r)
+    
+    def life_checker(self,individual):
+        
         now = perf_counter()
         # TODO: the lifechecker checks and make agent's heart beat in every frame in below loop
         # but it is not efficient, maybe only one of them is enough.
         # it is possible with generator or something
 
         # self.loop_counter=now
-
-        for name,_ in self.population.items():
-            # print('heartbeat')
-            # heartbeat of the agent            #
-            #print(type(i),i)
-            self.population[name][0].heart()
-            # current height
-            my_z = self.population[name][0].my_z
-            # 'elapsed'current age for the agent
-            elapsed = now-self.population[name][1]
-
-            if (elapsed > 50) or (my_z < -10):
-                
-                
-                self.remove_agent(name,self.population)
-
-                # REMOVE THIS, IT IS FOR A TEST, TO GET BEST BRAIN IN THE LINE (name of the agent)
-                # REMOVE THIS, IT IS FOR A TEST, TO GET BEST BRAIN IN THE LINE (name of the agent)
-                # print(self.brains())
-                # very nice break, just breaks the loop after removing agent so no dictionary error
-                break
+        individual_object=individual[1]
+        individual_name=individual[0] 
+        individual_life=individual[2]      
         
+        individual_object.heart()
+    
+
+    def first(self):
+
+        if self.a_len>1: 
+            # print('if')
+            self.a_len-=1      
+            individual=next(self.population_iter)            
+
+        elif(self.a_len==1):  
+            individual=next(self.population_iter)      
+            # print('elif')
+            self.population_iter=iter(self.population)
+            self.a_len=len(self.population)
+            
+            
+        return individual
+
+
+
+    def test_update(self, task):
+        # print(f'{task.frame} frame')
+        # individual=next(self.popu_iter)
+        # print(task.frame)
+        individual=self.first()
+
+        self.life_checker(individual)
+
+        # if iterer(dic)>0:            
+            
+        #     print(f'there are {pop_len} individuals')
+        #     # self.popu_iter=iter(self.population)    
+        # self.life_checker()
+        return task.cont
+
         
-        # FOOD
-        #checks how many times eaten and removes after one time
-        for p,r in self.food_piece_np.items():
-            if r[1]>0:                
-                self.remove_agent(p,self.food_piece_np)
-                break
-            #print (type(p),p,r)
-
-
     def update(self, task):
         dt = globalClock.getDt()
         self.world.doPhysics(dt)
-        self.life_checker()
-        self.eats()
+        
+        # self.eats()
 
         return task.cont
 
@@ -342,10 +395,10 @@ class Yer(DirectObject):
         # add this instance to population dictionary in the yer
         agent = fn(self.agent_name)
 
-        self.population[self.agent_name] = [agent, time.perf_counter()]        
+        self.population.append([self.agent_name,agent, time.perf_counter()])        
         self.agent_number += 1
         self.agent_name = 'agent'+str(self.agent_number)
-        print(self.population.items())
+        print(self.population)
         # return fn(self.agent_name)
 
     def make_body(self, agent_name):
@@ -439,49 +492,50 @@ class Lillies(Yer):
 
         now = perf_counter()
 
-        if now-self.hearttime > .5:
+        
 
-            self.my_z = self.my_path.getZ()
-            my_output = self.my_buff.getActiveDisplayRegion(0).getScreenshot()
-                # for feeding neural net
-            numpy_image_data = np.array(my_output.getRamImageAs("RGB"), np.float32)
-            
-            # print('heartbeat')
+        self.my_z = self.my_path.getZ()
+        my_output = self.my_buff.getActiveDisplayRegion(0).getScreenshot()
+            # for feeding neural net
+        numpy_image_data = np.array(my_output.getRamImageAs("RGB"), np.float32)
+        
+        # print('heartbeat')
 
 
-            # I removed this try/except part because it slows down all process (pyhon try/except is very slow)
-            # instead I add renderFrame to _init_ to solve the error (if you try to get screenShot before creating cam)
-            
-            # try:
-            #     my_output = self.my_buff.getActiveDisplayRegion(
-            #         0).getScreenshot()
-            #     # for feeding neural net
-            #     numpy_image_data = np.array(
-            #         my_output.getRamImageAs("RGB"), np.float32)
-            # except:
-            #     base.graphicsEngine.renderFrame()
-            #     print("except")
-            #     my_output = self.my_buff.getActiveDisplayRegion(
-            #         0).getScreenshot()
-            #     numpy_image_data = np.array(
-            #         my_output.getRamImageAs("RGB"), np.float32)
-            # # output neural net
-            prediction = self.brain.predict(numpy_image_data)
+        # I removed this try/except part because it slows down all process (pyhon try/except is very slow)
+        # instead I add renderFrame to _init_ to solve the error (if you try to get screenShot before creating cam)
+        
+        # try:
+        #     my_output = self.my_buff.getActiveDisplayRegion(
+        #         0).getScreenshot()
+        #     # for feeding neural net
+        #     numpy_image_data = np.array(
+        #         my_output.getRamImageAs("RGB"), np.float32)
+        # except:
+        #     base.graphicsEngine.renderFrame()
+        #     print("except")
+        #     my_output = self.my_buff.getActiveDisplayRegion(
+        #         0).getScreenshot()
+        #     numpy_image_data = np.array(
+        #         my_output.getRamImageAs("RGB"), np.float32)
+        # # output neural net
+        prediction = self.brain.predict(numpy_image_data)
 
-            x_Force = prediction[0][0]
-            y_Force = prediction[0][1]
-            z_Force = prediction[0][2]
-            z_Torque = prediction[0][3]
+        x_Force = prediction[0][0]
+        y_Force = prediction[0][1]
+        z_Force = prediction[0][2]
+        z_Torque = prediction[0][3]
 
-            force = Vec3(x_Force, y_Force, z_Force)*20
-            torque = Vec3(0, 0, z_Torque)*3
+        force = Vec3(x_Force, y_Force, z_Force)*10*yer.a_len
+        torque = Vec3(0, 0, z_Torque)*2*yer.a_len
 
-            force = yer.worldNP.getRelativeVector(self.my_path, force)
-            torque = yer.worldNP.getRelativeVector(self.my_path, torque)
-            self.body_node.setActive(True)
-            self.body_node.applyCentralForce(force)
-            self.body_node.applyTorque(torque)
-            self.hearttime = perf_counter()
+        force = yer.worldNP.getRelativeVector(self.my_path, force)
+        torque = yer.worldNP.getRelativeVector(self.my_path, torque)
+        self.body_node.setActive(True)
+        self.body_node.applyCentralForce(force)
+        self.body_node.applyTorque(torque)
+        # can be deleted(test it)
+        self.hearttime = perf_counter()
 
 
 class LilliesManual(Yer):
@@ -565,8 +619,8 @@ class LilliesManual(Yer):
             torque.setZ(-1.0)
         # Manual Lillie------------------
 
-        force *= 30.0
-        torque *= 10.0
+        force *= 70.0
+        torque *= 20.0
         # force=Vec3(x_Force,y_Force,0)*150
         # torque=Vec3(0,0,z_Torque)*40
 
@@ -582,6 +636,10 @@ yer = Yer()
 # this is manual controlled agent for debugging
 
 agent0 = yer.agent_factory(LilliesManual)
+
+yer.population_iter= iter(yer.population)
+yer.a_len=len(yer.population)
+
 #f = yer.food_maker()
 
 
