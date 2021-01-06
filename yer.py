@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from numpy import interp as interp
-
+import itertools  
 import sys
 from direct.showbase.ShowBase import ShowBase
 
@@ -25,6 +25,7 @@ from panda3d.core import Texture
 from panda3d.core import Camera
 from panda3d.core import PerspectiveLens
 from panda3d.core import Material
+from direct.gui.DirectGui import *
 import gltf
 # from panda3d.core import PandaNode
 
@@ -44,12 +45,9 @@ from panda3d.bullet import ZUp
 from panda3d.bullet import BulletCharacterControllerNode
 from panda3d.core import GraphicsEngine
 
-# import lilly_11
-# import Efficie
+
 
 import small_net
-# import puddle
-# import ernie
 import time
 from time import perf_counter
 from opensimplex import OpenSimplex
@@ -58,10 +56,10 @@ from opensimplex import OpenSimplex
 base = ShowBase()
 
 
+
 class Yer(DirectObject):
 
     def __init__(self):
-        
         self.loop_counter = 0
         #initial values for creation and removal for first agent (manual controlled agent)
         self.remove_this = 'agent0'
@@ -69,10 +67,11 @@ class Yer(DirectObject):
         self.agent_number = 0
         # list of food pieces, dictionary {"food id" ,[food object, number of time eaten]}
         self.food_piece_np={}
-        # list of agents, dictionary {"agent_name" ,[agent object, agent_age]}
+        # list of agents, dictionary {"agent_name" ,[agent object, agent_age, agent energy]}
         self.population = []
-        # self.population_iter = iter(self.population)
-        # self.population_iter= iter(self.population.items())
+        self.num_of_individuals=1
+        
+
         
         self.best_brains=[]
         #gltf loader instead of native loader (must be installed first)
@@ -107,7 +106,9 @@ class Yer(DirectObject):
 
         taskMgr.add(self.update, 'updateWorld')
         
-        taskMgr.add(self.test_update, 'test_update')
+        
+        
+        taskMgr.doMethodLater(2, self.checker, 'checker')
 
         self.accept('f3', self.toggleDebug)
 
@@ -136,6 +137,7 @@ class Yer(DirectObject):
     # check every pieces of food in every frame and checks every agents
     # TODO this could be a yielding fuction, each time we can run it only one of  the piece
     # I guess it is enough.
+
     def eats(self):
         if self.food_piece_np:
             for key in self.food_piece_np:
@@ -146,11 +148,56 @@ class Yer(DirectObject):
                     # print(agent_node,self.food_piece_np[key][0].node())
                     # print(self.food_piece_np[key][1])
                     #gets the name of the agent for updating life in population dictionary
+                    # print(agent_node)
                     agent_name=agent_node.getName()
                     # updates the life
-                    self.population[agent_name][1]+=10
+                    for agent in self.population:
+
+                        # print(agent[2])
+                        if self.individual_name(agent)==agent_name:
+                            # print("life+")
+                            agent[3]+=10
+
+                    # self.population[agent_name][1]+=10
                     # updates the number of bites taken from a particular food piece
                     self.food_piece_np[key][1] +=1
+
+
+    def individual_name(self,individual):
+        """ brings individual's name from population item"""
+        return individual[0]
+
+
+    def individual_obj(self,individual):
+        """ brings individual's object from population item"""
+        return individual[1]
+    
+
+    def individual_b_day(self,individual):
+        """ brings individual's born date from population item"""
+        return individual[2]
+
+
+    def individual_energy(self,individual):
+        """ brings individual'energy level population item"""
+        return individual[3]
+
+
+    def individual_burn_energy(self,individual):
+        """ decreases individual's energy level"""
+        individual[3] -= 2
+
+    
+    def individual_age(self,individual):
+        return time.perf_counter() - self.individual_b_day(individual)
+
+
+    def individual_z(self,individual):
+        return self.individual_obj(individual).my_z
+
+
+
+    
 
 
     def food_maker(self):
@@ -278,100 +325,79 @@ class Yer(DirectObject):
         # name of the oldest individual
         return best_brains[0][0]
 
-    # def life_checker(self):
-    #     now = perf_counter()
-    #     # TODO: the lifechecker checks and make agent's heart beat in every frame in below loop
-    #     # but it is not efficient, maybe only one of them is enough.
-    #     # it is possible with generator or something
 
-    #     # self.loop_counter=now
-
-    #     for name,_ in self.population.items():
-    #         # print('heartbeat')
-    #         # heartbeat of the agent            #
-    #         #print(type(i),i)
-    #         self.population[name][0].heart()
-    #         # current height
-    #         my_z = self.population[name][0].my_z
-    #         # 'elapsed'current age for the agent
-    #         elapsed = now-self.population[name][1]
-
-    #         if (elapsed > 50) or (my_z < -10):
-                
-                
-    #             self.remove_agent(name,self.population)
-
-    #             # REMOVE THIS, IT IS FOR A TEST, TO GET BEST BRAIN IN THE LINE (name of the agent)
-    #             # REMOVE THIS, IT IS FOR A TEST, TO GET BEST BRAIN IN THE LINE (name of the agent)
-    #             # print(self.brains())
-    #             # very nice break, just breaks the loop after removing agent so no dictionary error
-    #             break
+    def food_checker(self):
+        for p,r in self.food_piece_np.items():
+            # remove piece after 3rd bite
+            if r[1]>3:                
+                self.remove_agent(p,self.food_piece_np)
+                break
+            #print (type(p),p,r) 
+                   
+    def check_health(self,individual):
         
-        
-    #     # FOOD
-    #     #checks how many times eaten and removes after one time
-    #     for p,r in self.food_piece_np.items():
-    #         if r[1]>0:                
-    #             self.remove_agent(p,self.food_piece_np)
-    #             break
-    #         #print (type(p),p,r)
-    
-    def life_checker(self,individual):
-        
-        now = perf_counter()
-        # TODO: the lifechecker checks and make agent's heart beat in every frame in below loop
-        # but it is not efficient, maybe only one of them is enough.
-        # it is possible with generator or something
+        if self.individual_age(individual)>1550 or self.individual_z(individual)<-10 or self.individual_energy(individual)<0 :
+            self.remove_individual(individual,self.population)
 
-        # self.loop_counter=now
-        individual_object=individual[1]
-        individual_name=individual[0] 
-        individual_life=individual[2]      
-        
-        individual_object.heart()
-    
 
-    def first(self):
+    def pick_from_population(self,frame):
+        # circular call for each item
+        idx= frame % len(self.population)       
+        individual=self.population[idx]
 
-        if self.a_len>1: 
-            # print('if')
-            self.a_len-=1      
-            individual=next(self.population_iter)            
-
-        elif(self.a_len==1):  
-            individual=next(self.population_iter)      
-            # print('elif')
-            self.population_iter=iter(self.population)
-            self.a_len=len(self.population)
-            
-            
         return individual
 
-
-
-    def test_update(self, task):
-        # print(f'{task.frame} frame')
-        # individual=next(self.popu_iter)
-        # print(task.frame)
-        individual=self.first()
-
-        self.life_checker(individual)
-
-        # if iterer(dic)>0:            
+    def energy_burner(self):
+        for agent in self.population:        
+            self.individual_burn_energy(agent)  
+             
             
-        #     print(f'there are {pop_len} individuals')
-        #     # self.popu_iter=iter(self.population)    
-        # self.life_checker()
-        return task.cont
-
+            
         
+    
+
+    def checker(self, task):
+        """ updates every 2 seconds """
+        # print(f'{task.frame} frame')
+        # print("checker")
+        self.energy_burner()
+        self.food_checker()
+        self.eats()  
+        return task.again
+
+
     def update(self, task):
+        """ updates every frame """
         dt = globalClock.getDt()
         self.world.doPhysics(dt)
-        
-        # self.eats()
+        # next agent
+        individual=self.pick_from_population(task.frame)
+        # heartbeat of next agent
+        self.individual_obj(individual).heart()
+        self.check_health(individual)
+        self.num_of_individuals=len(self.population)
 
         return task.cont
+
+    def remove_individual(self, individual,fromhere):
+        """ this fuction removes agents and foods from environment
+        also removes relevant nodes and nodepatths(not sure about notePaths))"""
+
+        name=self.individual_name(individual)
+
+        np=self.worldNP.find(name)
+        #print(np,type(np))
+        print(f'removed agent: {name}')
+
+        if not self.worldNP.find(name).isEmpty():
+            # this is pyhon Lilly Class instance in the population dictionary
+            self.population.remove(individual)
+            
+            # this is removes PyBullet Node
+            self.world.remove(np.node())
+            # this removes nodePath.....check print statement
+            np.removeNode()
+            #print(np)
 
     def remove_agent(self, remove_this,fromhere):
         """ this fuction removes agents and foods from environment
@@ -394,8 +420,8 @@ class Yer(DirectObject):
 
         # add this instance to population dictionary in the yer
         agent = fn(self.agent_name)
-
-        self.population.append([self.agent_name,agent, time.perf_counter()])        
+        full_stomach=50
+        self.population.append([self.agent_name,agent, time.perf_counter(), full_stomach])        
         self.agent_number += 1
         self.agent_name = 'agent'+str(self.agent_number)
         print(self.population)
@@ -441,7 +467,8 @@ class Yer(DirectObject):
 class Lillies(Yer):
 
     def __init__(self, agent_name):
-
+        # not used can be deleted
+        self.name=agent_name
         self.hearttime = 0
         # bullet notePath 'z' value
         self.my_z = 0
@@ -490,7 +517,7 @@ class Lillies(Yer):
 
     def heart(self):
 
-        now = perf_counter()
+        # now = perf_counter()
 
         
 
@@ -526,8 +553,8 @@ class Lillies(Yer):
         z_Force = prediction[0][2]
         z_Torque = prediction[0][3]
 
-        force = Vec3(x_Force, y_Force, z_Force)*10*yer.a_len
-        torque = Vec3(0, 0, z_Torque)*2*yer.a_len
+        force = Vec3(x_Force, y_Force, z_Force)*5*yer.num_of_individuals
+        torque = Vec3(0, 0, z_Torque)*1*yer.num_of_individuals
 
         force = yer.worldNP.getRelativeVector(self.my_path, force)
         torque = yer.worldNP.getRelativeVector(self.my_path, torque)
@@ -535,7 +562,7 @@ class Lillies(Yer):
         self.body_node.applyCentralForce(force)
         self.body_node.applyTorque(torque)
         # can be deleted(test it)
-        self.hearttime = perf_counter()
+        # self.hearttime = perf_counter()
 
 
 class LilliesManual(Yer):
@@ -619,8 +646,8 @@ class LilliesManual(Yer):
             torque.setZ(-1.0)
         # Manual Lillie------------------
 
-        force *= 70.0
-        torque *= 20.0
+        force *= 70.0*yer.num_of_individuals
+        torque *= 20.0*yer.num_of_individuals
         # force=Vec3(x_Force,y_Force,0)*150
         # torque=Vec3(0,0,z_Torque)*40
 
@@ -637,8 +664,8 @@ yer = Yer()
 
 agent0 = yer.agent_factory(LilliesManual)
 
-yer.population_iter= iter(yer.population)
-yer.a_len=len(yer.population)
+
+
 
 #f = yer.food_maker()
 
@@ -658,4 +685,16 @@ print(yer.worldNP.findAllMatches("*"))
 print("A.J.A.N")
 print(yer.worldNP.find("*").node())"""
 
+
+bk_text = "This is my Demo"
+textObject = OnscreenText(text=bk_text, pos=(0.95,-0.95), scale=0.07,
+                    fg=(1, 0.5, 0.5, 1), 
+                    mayChange=1)
+def setText():
+        bk_text = "Button Clicked"
+        textObject.setText(bk_text)
+
+# Add button
+b = DirectButton(text=("OK", "click!", "rolling over", "disabled"),
+                 scale=.1, command=setText)
 base.run()
