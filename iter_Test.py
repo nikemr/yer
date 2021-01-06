@@ -16,7 +16,30 @@ count = 0
 #             print('pop8')
 #             a.pop(8)
 #             break
+# # for in loop  
 
+
+class iterim:
+
+    def __init__(self):
+
+        self.ll=[1,2,3,4,5,6,7,8,9,10]
+
+
+    def lister(self):
+
+        for i in itertools.cycle(self.ll):
+            yield i
+    
+    def getit(self):
+        next()
+        
+    
+
+
+         
+        
+        
 
 # class Bu():
 #     def __init__(self):
