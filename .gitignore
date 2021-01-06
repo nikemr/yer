@@ -3,4 +3,5 @@
 *checkpoint.ipynb
 __pycache__/
 .vscode
+.lsp/
 imagenet/*
