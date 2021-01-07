@@ -260,15 +260,14 @@ class Yer(DirectObject):
                     visualNPList[food_id].setMaterial(myMaterial)
 
                     visualNPList[food_id].reparentTo(self.food_piece_np[food_id][0])
-        
                 
-
 
     def toggleDebug(self):
         if self.debugNP.isHidden():
             self.debugNP.show()
         else:
             self.debugNP.hide()
+
 
     def landscape(self):
         ## Bullet World #################################################################################
@@ -315,8 +314,6 @@ class Yer(DirectObject):
         self.terrain.generate()
 
 
-
-
     def brains(self):
         ''' returns the name of the oldest individual'''
         # it should be revised to return best brain model not name
@@ -344,17 +341,13 @@ class Yer(DirectObject):
         # circular call for each item
         idx= frame % len(self.population)       
         individual=self.population[idx]
-
         return individual
+
 
     def energy_burner(self):
         for agent in self.population:        
             self.individual_burn_energy(agent)  
              
-            
-            
-        
-    
 
     def checker(self, task):
         """ updates every 2 seconds """
@@ -378,6 +371,7 @@ class Yer(DirectObject):
         self.num_of_individuals=len(self.population)
 
         return task.cont
+
 
     def remove_individual(self, individual,fromhere):
         """ this fuction removes agents and foods from environment
@@ -518,17 +512,12 @@ class Lillies(Yer):
     def heart(self):
 
         # now = perf_counter()
-
-        
-
         self.my_z = self.my_path.getZ()
         my_output = self.my_buff.getActiveDisplayRegion(0).getScreenshot()
             # for feeding neural net
         numpy_image_data = np.array(my_output.getRamImageAs("RGB"), np.float32)
         
         # print('heartbeat')
-
-
         # I removed this try/except part because it slows down all process (pyhon try/except is very slow)
         # instead I add renderFrame to _init_ to solve the error (if you try to get screenShot before creating cam)
         
