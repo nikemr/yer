@@ -10,33 +10,6 @@ import pretrainedmodels
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-class EfficientNet_b0(nn.Module):
-    def __init__(self):
-        super(EfficientNet_b0, self).__init__()
-        self.model = efficientnet_pytorch.EfficientNet.from_pretrained('efficientnet-b0')
-        
-        self.classifier_layer = nn.Sequential(
-            nn.Linear(1280 , 512),
-            nn.ReLU(),
-            #nn.BatchNorm1d(512),
-            #nn.Dropout(0.2),
-            nn.Linear(512 , 256),
-            nn.ReLU(),
-            nn.Linear(256 , 4)
-        )
-        
-    def forward(self, inputs):
-        x = self.model.extract_features(inputs)
-
-        # Pooling and final linear layer
-        x = self.model._avg_pooling(x)
-        x = x.flatten(start_dim=1)
-        x = self.model._dropout(x)
-        x = self.classifier_layer(x)
-        return x
-
-
-
 class Resnet18(nn.Module):
     def __init__(self):
         super(Resnet18, self).__init__()
