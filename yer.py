@@ -48,6 +48,7 @@ from panda3d.core import GraphicsEngine
 
 
 import small_net
+import first_seed
 import time
 from time import perf_counter
 from opensimplex import OpenSimplex
@@ -62,9 +63,9 @@ class Yer(DirectObject):
     def __init__(self):
         self.loop_counter = 0
         #initial values for creation and removal for first agent (manual controlled agent)
-        self.remove_this = 'agent0'
-        self.agent_name = 'agent0'        
-        self.agent_number = 0
+        self.remove_this = 'agent1'
+        self.agent_name = 'agent1'        
+        self.agent_number = 1
         # list of food pieces, dictionary {"food id" ,[food object, number of time eaten]}
         self.food_piece_np={}
         # list of agents, dictionary {"agent_name" ,[agent object, agent_age, agent energy]}
@@ -127,7 +128,9 @@ class Yer(DirectObject):
         inputState.watchWithModifiers('jump', 'j')
 
         # create a new duck
+        self.accept('z', self.agent_zero, [LilliesManual])
         self.accept('n', self.agent_factory, [Lillies])
+
         #initial food supply
         self.food_maker()
 
@@ -369,7 +372,8 @@ class Yer(DirectObject):
         self.individual_obj(individual).heart()
         self.check_health(individual)
         self.num_of_individuals=len(self.population)
-
+        # Manual agent
+        agent0.heart()
         return task.cont
 
 
@@ -410,16 +414,34 @@ class Yer(DirectObject):
             np.removeNode()
             #print(np)
 
-    def agent_factory(self, fn):
+
+    def agent_zero(self, fn):
 
         # add this instance to population dictionary in the yer
         agent = fn(self.agent_name)
-        full_stomach=50
-        self.population.append([self.agent_name,agent, time.perf_counter(), full_stomach])        
-        self.agent_number += 1
-        self.agent_name = 'agent'+str(self.agent_number)
+        return agent
+
+
+    # def agent_zero(self, fn):
+
+    #     # add this instance to population dictionary in the yer
+    #     agent = fn(self.agent_name)
+    #     full_stomach=50
+    #     self.population.append([self.agent_name,agent, time.perf_counter(), full_stomach])        
+    #     self.agent_number += 1
+    #     self.agent_name = 'agent'+str(self.agent_number)
+    #     print(self.population)        
+
+    def agent_factory(self, fn):
+        brains=first_seed.model_loader()
+        for brain in brains:
+            agent = fn(self.agent_name,brain)
+            full_stomach=50
+            self.population.append([self.agent_name,agent, time.perf_counter(), full_stomach])        
+            self.agent_number += 1
+            self.agent_name = 'agent'+str(self.agent_number)
         print(self.population)
-        # return fn(self.agent_name)
+        
 
     def make_body(self, agent_name):
         """creates agents for the world"""
@@ -460,14 +482,15 @@ class Yer(DirectObject):
 
 class Lillies(Yer):
 
-    def __init__(self, agent_name):
+    def __init__(self, agent_name,brain):
         # not used can be deleted
         self.name=agent_name
         self.hearttime = 0
         # bullet notePath 'z' value
         self.my_z = 0
         # self.lilly_11=lilly_11
-        self.brain = small_net
+        # self.brain = small_net
+        self.brain = brain
         #print(self.brain.model)
         # print(self.lilly_11[0].values)
         self.x_Force = 0
@@ -535,7 +558,7 @@ class Lillies(Yer):
         #     numpy_image_data = np.array(
         #         my_output.getRamImageAs("RGB"), np.float32)
         # # output neural net
-        prediction = self.brain.predict(numpy_image_data)
+        prediction = first_seed.predict(numpy_image_data,self.brain)
 
         x_Force = prediction[0][0]
         y_Force = prediction[0][1]
@@ -635,8 +658,8 @@ class LilliesManual(Yer):
             torque.setZ(-1.0)
         # Manual Lillie------------------
 
-        force *= 70.0*yer.num_of_individuals
-        torque *= 20.0*yer.num_of_individuals
+        force *= 10*yer.num_of_individuals
+        torque *= 2*yer.num_of_individuals
         # force=Vec3(x_Force,y_Force,0)*150
         # torque=Vec3(0,0,z_Torque)*40
 
@@ -651,7 +674,18 @@ class LilliesManual(Yer):
 yer = Yer()
 # this is manual controlled agent for debugging
 
-agent0 = yer.agent_factory(LilliesManual)
+agent0 = yer.agent_zero(LilliesManual)
+
+# first load after startup
+brains=first_seed.model_loader()
+for brain in brains:
+    
+    agent=Lillies(yer.agent_name,brain)
+    full_stomach=50
+    yer.population.append([yer.agent_name,agent, time.perf_counter(), full_stomach])        
+    yer.agent_number += 1
+    yer.agent_name = 'agent'+str(yer.agent_number)
+print(yer.population)
 
 
 
