@@ -2,7 +2,9 @@ import torch
 import numpy as np
 from numpy import interp as interp
 import itertools  
+import random
 import sys
+import copy
 from direct.showbase.ShowBase import ShowBase
 
 from direct.showbase.DirectObject import DirectObject
@@ -68,7 +70,7 @@ class Yer(DirectObject):
         self.agent_number = 1
         # list of food pieces, dictionary {"food id" ,[food object, number of time eaten]}
         self.food_piece_np={}
-        # list of agents, dictionary {"agent_name" ,[agent object, agent_age, agent energy]}
+        # list of agents, dictionary ["agent_name" ,agent object, agent_age, agent energy]
         self.population = []
         self.num_of_individuals=1
         
@@ -106,7 +108,9 @@ class Yer(DirectObject):
         self.landscape()
 
         taskMgr.add(self.update, 'updateWorld')
+
         
+        taskMgr.doMethodLater(60*60, self.brain_save, 'checker')
         
         
         taskMgr.doMethodLater(2, self.checker, 'checker')
@@ -200,7 +204,11 @@ class Yer(DirectObject):
 
 
 
-    
+    def save_it(self):
+        idx=0
+        for brain in self.best_ducks():
+            torch.save(brain.state_dict(),f'resnet_evolved/{idx}.pt')
+            idx+=1
 
 
     def food_maker(self):
@@ -208,7 +216,7 @@ class Yer(DirectObject):
         dx = .5
         dy = .5
         dz = .5
-        food = OpenSimplex(seed=1)
+        food = OpenSimplex(random.randint(1, 100))
         visualNPList={}
 
         myMaterial = Material()
@@ -224,11 +232,11 @@ class Yer(DirectObject):
                 # 2d noise for scaling
                 food_scale = food.noise2d(i/50, j/50)
                 # interpolated between (0-1)
-                food_scale = interp(food_scale, (-1, 1), (0, 1))
+                food_scale = interp(food_scale, (-1, 1), (0, 3))
                 chance = food_scale * np.random.randint(0, 100)
                 # made it string to keep the consisteny with population dictionary (name,[object,data])
                 food_id="Box"+str(i)+str(j)
-                if chance > 50:
+                if chance > 85:
                     shape = BulletBoxShape(Vec3(dx*food_scale , dy*food_scale , dz*food_scale))
                     """this row creates a GhostNode and adds '0' as number of bite eaten by agent to a list,
                      then put this list in a food_piece_np dictionary."""
@@ -317,14 +325,35 @@ class Yer(DirectObject):
         self.terrain.generate()
 
 
-    def brains(self):
+
+    def one_of_oldest_ducks(self):
         ''' returns the name of the oldest individual'''
         # it should be revised to return best brain model not name
         now = perf_counter()
-        best_brains= sorted(self.population.items(), key = (lambda item: now - (item[1][1])),reverse=True)
+        best_brains= sorted(self.population, key = (lambda item: now - (item[2])),reverse=True)
         # name of the oldest individual
-        return best_brains[0][0]
+        # print(best_brains[0][0])
+        best_brains=best_brains[:5]
+        # return best_brains[0][0]
+        brain=random.choices(best_brains, weights = [5,4,3,2,1], k = 1)
+        print(f'father: {brain[0][0]}')
+        return brain
+    def best_ducks(self):
+        ''' returns the name of the oldest individual'''
+        # it should be revised to return best brain model not name
+        now = perf_counter()
+        best_individuals= sorted(self.population, key = (lambda item: now - (item[2])),reverse=True)
+        # name of the oldest individual
+        # print(best_brains[0][0])
+        best_individuals=best_individuals[:5]
+        # return best_brains[0][0]
+        brain_list=[]
+        for individual in best_individuals:
+            brain_list.append(individual[1].brain)
 
+
+        
+        return brain_list
 
     def food_checker(self):
         for p,r in self.food_piece_np.items():
@@ -336,7 +365,7 @@ class Yer(DirectObject):
                    
     def check_health(self,individual):
         
-        if self.individual_age(individual)>1550 or self.individual_z(individual)<-10 or self.individual_energy(individual)<0 :
+        if self.individual_age(individual)>170 or self.individual_z(individual)<-10 or self.individual_energy(individual)<0 :
             self.remove_individual(individual,self.population)
 
 
@@ -358,7 +387,21 @@ class Yer(DirectObject):
         # print("checker")
         self.energy_burner()
         self.food_checker()
-        self.eats()  
+        if len(self.food_piece_np)<95:
+            self.food_maker()
+        print(f'number of food:{len(self.food_piece_np)} ')
+        if len(self.population)<15:
+            self.agent_factory(Lillies)
+            self.agent_factory(Lillies)
+            self.agent_factory(Lillies)
+            self.agent_factory(Lillies)
+            self.agent_factory(Lillies)
+
+        # print(f'food left: {len(self.food_piece_np)}')
+        
+
+
+        # self.one_of_oldest_ducks()
         return task.again
 
 
@@ -366,15 +409,22 @@ class Yer(DirectObject):
         """ updates every frame """
         dt = globalClock.getDt()
         self.world.doPhysics(dt)
+        
+        self.eats()  
         # next agent
         individual=self.pick_from_population(task.frame)
         # heartbeat of next agent
         self.individual_obj(individual).heart()
         self.check_health(individual)
         self.num_of_individuals=len(self.population)
+       
         # Manual agent
         agent0.heart()
         return task.cont
+
+    def brain_save(self, task):
+        self.save_it()
+        return task.again
 
 
     def remove_individual(self, individual,fromhere):
@@ -422,25 +472,60 @@ class Yer(DirectObject):
         return agent
 
 
-    # def agent_zero(self, fn):
 
-    #     # add this instance to population dictionary in the yer
-    #     agent = fn(self.agent_name)
-    #     full_stomach=50
-    #     self.population.append([self.agent_name,agent, time.perf_counter(), full_stomach])        
-    #     self.agent_number += 1
-    #     self.agent_name = 'agent'+str(self.agent_number)
-    #     print(self.population)        
+    def new_brain(self):
+        # oldest ducs brain in index 1
+        # print(f'dssssssssssssssssssssssssssssssssssssssssss{self.one_of_oldest_ducks()}')
+        # needs to be refoctored
+        # TODO not nice
+        # reset age of the father (I need to think if it is right?????)
+        self.one_of_oldest_ducks()[0][3]-=50
+        parent_brain=self.one_of_oldest_ducks()[0][1].brain
+        parent_state= copy.deepcopy(parent_brain.state_dict())
+        new_model=first_seed.Resnet18()
+        new_model.load_state_dict(parent_state)
+
+        for param in new_model.classifier_layer.parameters():
+            param.requires_grad = False
+            
+        for layer_index in range(len(new_model.classifier_layer)):
+            if type(new_model.classifier_layer[layer_index])==torch.nn.modules.linear.Linear:
+                num_nodes=new_model.classifier_layer[layer_index].out_features
+                node_idx=0
+                
+                while node_idx < num_nodes:            
+        #             with torch.no_grad():
+                    if random.random() < .02:
+                        for val in new_model.classifier_layer[layer_index].weight[node_idx]:
+                            new_model.classifier_layer[layer_index].weight[node_idx]
+                            val+=np.random.normal(loc=0.005, scale=.01)
+                            # print(val)
+                            
+                    node_idx+=1 
+        return new_model       
+
 
     def agent_factory(self, fn):
-        brains=first_seed.model_loader()
-        for brain in brains:
-            agent = fn(self.agent_name,brain)
-            full_stomach=50
-            self.population.append([self.agent_name,agent, time.perf_counter(), full_stomach])        
-            self.agent_number += 1
-            self.agent_name = 'agent'+str(self.agent_number)
-        print(self.population)
+        
+        brain=self.new_brain()        
+        agent = fn(self.agent_name,brain)
+        full_stomach=50
+        self.population.append([self.agent_name,agent, time.perf_counter(), full_stomach])        
+        self.agent_number += 1
+        self.agent_name = 'agent'+str(self.agent_number)
+        
+
+
+
+    # def agent_factory(self, fn):
+    #     brains=first_seed.model_loader()
+    #     for brain in brains:
+    #         agent = fn(self.agent_name,brain)
+    #         full_stomach=50
+    #         self.population.append([self.agent_name,agent, time.perf_counter(), full_stomach])        
+    #         self.agent_number += 1
+    #         self.agent_name = 'agent'+str(self.agent_number)
+    #     print(self.population)
         
 
     def make_body(self, agent_name):
@@ -600,8 +685,8 @@ class LilliesManual(Yer):
         fb_prop.setDepthBits(16)
         # Create a WindowProperties object set to 256x256 size.
         win_prop = WindowProperties.size(128, 128)
-        # flags = GraphicsPipe.BF_refuse_window
-        flags = GraphicsPipe.BF_require_window
+        flags = GraphicsPipe.BF_refuse_window
+        # flags = GraphicsPipe.BF_require_window
 
         lens = PerspectiveLens()
         self.my_buff = base.graphicsEngine.make_output(
@@ -686,6 +771,7 @@ for brain in brains:
     yer.agent_number += 1
     yer.agent_name = 'agent'+str(yer.agent_number)
 print(yer.population)
+print(len(yer.population))
 
 
 
@@ -720,4 +806,5 @@ def setText():
 # Add button
 b = DirectButton(text=("OK", "click!", "rolling over", "disabled"),
                  scale=.1, command=setText)
+                 
 base.run()
