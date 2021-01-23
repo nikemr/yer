@@ -39,7 +39,7 @@ def model_loader():
             param.requires_grad = False
         model.eval()
         if use_cuda:
-            model = model.cuda
+            model = model.cuda()
             
     return model_list
 
@@ -59,10 +59,10 @@ def predict(np_im,model):
     ## Load and pre-process an image from the given img_path
     ## Return the *index* of the predicted class for that image
     
-    if use_cuda:
-        model.cuda()
+    # if use_cuda:
+    #     model.cuda()
     
-    model.eval()    
+    # model.eval()    
     
     with torch.no_grad():
        
