@@ -49,7 +49,7 @@ from panda3d.core import GraphicsEngine
 
 
 
-import small_net
+import home_made
 import first_seed
 import time
 from time import perf_counter
@@ -207,7 +207,7 @@ class Yer(DirectObject):
     def save_it(self):
         idx=0
         for brain in self.best_ducks():
-            torch.save(brain.state_dict(),f'resnet_evolved/{idx}.pt')
+            torch.save(brain.state_dict(),f'home_made_models/{idx}.pt')
             idx+=1
 
 
@@ -489,7 +489,7 @@ class Yer(DirectObject):
         self.one_of_oldest_ducks()[0][3]-=50
         parent_brain=self.one_of_oldest_ducks()[0][1].brain
         parent_state= copy.deepcopy(parent_brain.state_dict())
-        new_model=first_seed.Resnet18()
+        new_model=home_made.Net()
         new_model.load_state_dict(parent_state)
         use_cuda = torch.cuda.is_available()
         if use_cuda:
@@ -497,23 +497,40 @@ class Yer(DirectObject):
     
         new_model.eval()   
 
-        for param in new_model.classifier_layer.parameters():
+        for param in new_model.parameters():
             param.requires_grad = False
-            
-        for layer_index in range(len(new_model.classifier_layer)):
-            if type(new_model.classifier_layer[layer_index])==torch.nn.modules.linear.Linear:
-                num_nodes=new_model.classifier_layer[layer_index].out_features
+        
+        i=0
+        for parts in new_model.modules():
+            if type(parts)==torch.nn.modules.linear.Linear:
+                i+=1
+                num_nodes=parts.out_features
                 node_idx=0
-                
-                while node_idx < num_nodes:            
-        #             with torch.no_grad():
+
+
+                while node_idx < num_nodes:
                     if random.random() < .02:
-                        for val in new_model.classifier_layer[layer_index].weight[node_idx]:
-                            new_model.classifier_layer[layer_index].weight[node_idx]
+                        for val in parts.weight[node_idx]:
                             val+=np.random.normal(loc=0.001, scale=.01)
-                            # print(val)
+                    node_idx+=1
+                
+
+
+
+        # for layer_index in range(len(new_model.classifier_layer)):
+        #     if type(new_model.classifier_layer[layer_index])==torch.nn.modules.linear.Linear:
+        #         num_nodes=new_model.classifier_layer[layer_index].out_features
+        #         node_idx=0
+                
+        #         while node_idx < num_nodes:            
+        # #             with torch.no_grad():
+        #             if random.random() < .02:
+        #                 for val in new_model.classifier_layer[layer_index].weight[node_idx]:
+        #                     new_model.classifier_layer[layer_index].weight[node_idx]
+        #                     val+=np.random.normal(loc=0.001, scale=.01)
+        #                     # print(val)
                             
-                    node_idx+=1 
+        #             node_idx+=1 
         return new_model       
 
 
@@ -602,7 +619,7 @@ class Lillies(Yer):
         fb_prop.setRgbaBits(8, 8, 8, 0)
         fb_prop.setDepthBits(16)
         # Create a WindowProperties object set to 256x256 size.
-        win_prop = WindowProperties.size(224, 224)
+        win_prop = WindowProperties.size(36, 36)
         flags = GraphicsPipe.BF_refuse_window
         # flags = GraphicsPipe.BF_require_window
 
@@ -655,15 +672,15 @@ class Lillies(Yer):
         #     numpy_image_data = np.array(
         #         my_output.getRamImageAs("RGB"), np.float32)
         # # output neural net
-        prediction = first_seed.predict(numpy_image_data,self.brain)
+        prediction = home_made.predict(numpy_image_data,self.brain)
 
         x_Force = prediction[0][0]
         y_Force = prediction[0][1]
         z_Force = prediction[0][2]
         z_Torque = prediction[0][3]
 
-        force = Vec3(x_Force, y_Force, z_Force)*5*yer.num_of_individuals
-        torque = Vec3(0, 0, z_Torque)*1*yer.num_of_individuals
+        force = Vec3(x_Force, y_Force, z_Force)*5/30*yer.num_of_individuals
+        torque = Vec3(0, 0, z_Torque)*1/30*yer.num_of_individuals
 
         force = yer.worldNP.getRelativeVector(self.my_path, force)
         torque = yer.worldNP.getRelativeVector(self.my_path, torque)
@@ -774,7 +791,7 @@ yer = Yer()
 agent0 = yer.agent_zero(LilliesManual)
 
 # first load after startup
-brains=first_seed.model_loader()
+brains=home_made.model_loader()
 for brain in brains:
     
     agent=Lillies(yer.agent_name,brain)
@@ -784,7 +801,14 @@ for brain in brains:
     yer.agent_name = 'agent'+str(yer.agent_number)
 print(yer.population)
 print(len(yer.population))
-
+brains=home_made.model_loader()
+for brain in brains:
+    
+    agent=Lillies(yer.agent_name,brain)
+    full_stomach=50
+    yer.population.append([yer.agent_name,agent, time.perf_counter(), full_stomach])        
+    yer.agent_number += 1
+    yer.agent_name = 'agent'+str(yer.agent_number)
 
 
 
