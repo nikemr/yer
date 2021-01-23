@@ -110,7 +110,7 @@ class Yer(DirectObject):
         taskMgr.add(self.update, 'updateWorld')
 
         
-        taskMgr.doMethodLater(60*60, self.brain_save, 'checker')
+        taskMgr.doMethodLater(30*60, self.brain_save, 'checker')
         
         
         taskMgr.doMethodLater(2, self.checker, 'checker')
@@ -212,11 +212,11 @@ class Yer(DirectObject):
 
 
     def food_maker(self):
-        
+        hard_limit=0
         dx = .5
         dy = .5
         dz = .5
-        food = OpenSimplex(random.randint(1, 100))
+        food = OpenSimplex(seed=random.randint(1,100000))
         visualNPList={}
 
         myMaterial = Material()
@@ -232,12 +232,13 @@ class Yer(DirectObject):
                 # 2d noise for scaling
                 food_scale = food.noise2d(i/50, j/50)
                 # interpolated between (0-1)
-                food_scale = interp(food_scale, (-1, 1), (0, 3))
+                food_scale = interp(food_scale, (-1, 1), (0, 1))
                 chance = food_scale * np.random.randint(0, 100)
                 # made it string to keep the consisteny with population dictionary (name,[object,data])
                 food_id="Box"+str(i)+str(j)
-                if chance > 85:
-                    shape = BulletBoxShape(Vec3(dx*food_scale , dy*food_scale , dz*food_scale))
+                if chance > 50 and hard_limit<50:
+                    hard_limit+=1
+                    shape = BulletBoxShape(Vec3(dx*food_scale*2 , dy*food_scale*2 , dz*food_scale*2))
                     """this row creates a GhostNode and adds '0' as number of bite eaten by agent to a list,
                      then put this list in a food_piece_np dictionary."""
                     self.food_piece_np[food_id] = [self.worldNP.attachNewNode(BulletGhostNode(food_id)),0]
@@ -266,7 +267,7 @@ class Yer(DirectObject):
                     self.food_piece_np[food_id][0].setPos(i, j, result.getHitPos()[2]+dy*food_scale/2)
                     # this is the visual for the cube                     
                     visualNPList[food_id] = loader.loadModel('models/cube.gltf')
-                    visualNPList[food_id].set_scale(food_scale)
+                    visualNPList[food_id].set_scale(food_scale*2)
 
                     visualNPList[food_id].setMaterial(myMaterial)
 
@@ -338,6 +339,7 @@ class Yer(DirectObject):
         brain=random.choices(best_brains, weights = [5,4,3,2,1], k = 1)
         print(f'father: {brain[0][0]}')
         return brain
+
     def best_ducks(self):
         ''' returns the name of the oldest individual'''
         # it should be revised to return best brain model not name
@@ -358,11 +360,16 @@ class Yer(DirectObject):
     def food_checker(self):
         for p,r in self.food_piece_np.items():
             # remove piece after 3rd bite
-            if r[1]>3:                
+            if r[1]>0:                
                 self.remove_agent(p,self.food_piece_np)
                 break
             #print (type(p),p,r) 
-                   
+
+
+    
+                 
+
+                         
     def check_health(self,individual):
         
         if self.individual_age(individual)>170 or self.individual_z(individual)<-10 or self.individual_energy(individual)<0 :
@@ -387,15 +394,14 @@ class Yer(DirectObject):
         # print("checker")
         self.energy_burner()
         self.food_checker()
-        if len(self.food_piece_np)<95:
+        if len(self.food_piece_np)<50:
             self.food_maker()
         print(f'number of food:{len(self.food_piece_np)} ')
         if len(self.population)<15:
             self.agent_factory(Lillies)
             self.agent_factory(Lillies)
             self.agent_factory(Lillies)
-            self.agent_factory(Lillies)
-            self.agent_factory(Lillies)
+            
 
         # print(f'food left: {len(self.food_piece_np)}')
         
@@ -423,6 +429,7 @@ class Yer(DirectObject):
         return task.cont
 
     def brain_save(self, task):
+        
         self.save_it()
         return task.again
 
@@ -484,6 +491,11 @@ class Yer(DirectObject):
         parent_state= copy.deepcopy(parent_brain.state_dict())
         new_model=first_seed.Resnet18()
         new_model.load_state_dict(parent_state)
+        use_cuda = torch.cuda.is_available()
+        if use_cuda:
+            new_model.cuda()
+    
+        new_model.eval()   
 
         for param in new_model.classifier_layer.parameters():
             param.requires_grad = False
@@ -498,7 +510,7 @@ class Yer(DirectObject):
                     if random.random() < .02:
                         for val in new_model.classifier_layer[layer_index].weight[node_idx]:
                             new_model.classifier_layer[layer_index].weight[node_idx]
-                            val+=np.random.normal(loc=0.005, scale=.01)
+                            val+=np.random.normal(loc=0.001, scale=.01)
                             # print(val)
                             
                     node_idx+=1 
