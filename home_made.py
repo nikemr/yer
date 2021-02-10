@@ -20,9 +20,9 @@ class Net(nn.Module):
         # linear layer (64 * 4 * 4 -> 500)
         self.fc1 = nn.Linear(64 * 4 * 4, 500)
         # linear layer (500 -> 10)
-        self.fc2 = nn.Linear(500, 10)
+        self.fc2 = nn.Linear(500, 4)
         # dropout layer (p=0.25)
-        self.dropout = nn.Dropout(0.25)
+        # self.dropout = nn.Dropout(0.25)
 
     def forward(self, x):
         # add sequence of convolutional and max pooling layers
@@ -32,11 +32,11 @@ class Net(nn.Module):
         # flatten image input
         x = x.view(-1, 64 * 4 * 4)
         # add dropout layer
-        x = self.dropout(x)
+        # x = self.dropout(x)
         # add 1st hidden layer, with relu activation function
         x = F.relu(self.fc1(x))
         # add dropout layer
-        x = self.dropout(x)
+        # x = self.dropout(x)
         # add 2nd hidden layer, with relu activation function
         x = self.fc2(x)
         return x
@@ -58,9 +58,9 @@ def model_loader():
     model_list=[]
     use_cuda = torch.cuda.is_available()
     
-    for i in range(5):
+    for i in range(20):
         model_list.append(Net())
-        model_list[i].load_state_dict(torch.load(f'home_made_models/{i}.pt'))
+        model_list[i].load_state_dict(torch.load(f'home_made_models/{i%5}.pt'))
     # print(model_list)    
     for model in model_list:
         for param in model.parameters():
@@ -120,5 +120,5 @@ def process_image(np_im):
     return torch_image
 
 use_cuda = torch.cuda.is_available()
-
+torch.save(model.state_dict(),f'home_made_models/000.pt')
 print(model)

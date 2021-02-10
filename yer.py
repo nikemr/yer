@@ -9,7 +9,7 @@ from direct.showbase.ShowBase import ShowBase
 
 from direct.showbase.DirectObject import DirectObject
 from direct.showbase.InputStateGlobal import inputState
-
+from panda3d.core import LVecBase3
 from panda3d.core import AmbientLight
 from panda3d.core import DirectionalLight
 from panda3d.core import Vec3
@@ -111,6 +111,7 @@ class Yer(DirectObject):
 
         
         taskMgr.doMethodLater(30*60, self.brain_save, 'checker')
+        taskMgr.doMethodLater(2*60, self.thirty, 'thirty')
         
         
         taskMgr.doMethodLater(2, self.checker, 'checker')
@@ -137,9 +138,25 @@ class Yer(DirectObject):
 
         #initial food supply
         self.food_maker()
+        self.arrange_food()
 
     
     
+    def arrange_food(self):
+        for key in self.food_piece_np:
+            if(self.food_piece_np[key][1] =="active"):
+                self.food_piece_np[key][1] =="passive"
+                self.food_piece_np[key][0].setPos(self.food_piece_np[key][3])
+
+        for key in self.food_piece_np:
+            if random.random()>.7:
+                self.food_piece_np[key][1] ="active"
+                self.food_piece_np[key][0].setPos(self.food_piece_np[key][2])
+
+
+
+
+        
     
     # check every pieces of food in every frame and checks every agents
     # TODO this could be a yielding fuction, each time we can run it only one of  the piece
@@ -147,30 +164,37 @@ class Yer(DirectObject):
 
     def eats(self):
         if self.food_piece_np:
+
             for key in self.food_piece_np:
-                food =self.food_piece_np[key][0].node()
-                # iterates over all overlapping nodes with that piece which is one most of the time
-                for agent_node in food.getOverlappingNodes():
-                    #prints node (which is agent) and food piece node
-                    # print(agent_node,self.food_piece_np[key][0].node())
-                    # print(self.food_piece_np[key][1])
-                    #gets the name of the agent for updating life in population dictionary
-                    # print(agent_node)
-                    agent_name=agent_node.getName()
-                    # updates the life
-                    for agent in self.population:
+                if (self.food_piece_np[key][1] =="active"):
 
-                        # print(agent[2])
-                        if self.individual_name(agent)==agent_name:
-                            # print("life+")
-                            agent[3]+=10
+                    food =self.food_piece_np[key][0].node()
+                    # iterates over all overlapping nodes with that piece which is one most of the time
+                    for agent_node in food.getOverlappingNodes():
+                        #prints node (which is agent) and food piece node
+                        # print(agent_node,self.food_piece_np[key][0].node())
+                        # print(self.food_piece_np[key][1])
+                        #gets the name of the agent for updating life in population dictionary
+                        # print(agent_node)
+                        agent_name=agent_node.getName()
+                        # updates the life
+                        for agent in self.population:
 
-                    # self.population[agent_name][1]+=10
-                    # updates the number of bites taken from a particular food piece
-                    self.food_piece_np[key][1] +=1
+                            # print(agent[2])
+                            if self.individual_name(agent)==agent_name:
+                                # print("life+")
+                                agent[3]+=10
+
+                        # self.population[agent_name][1]+=10
+                        # updates the number of bites taken from a particular food piece
+                        self.food_piece_np[key][1] ="passive"
+                        self.food_piece_np[key][0].setPos(self.food_piece_np[key][3])
+
+
 
 
     def individual_name(self,individual):
+        
         """ brings individual's name from population item"""
         return individual[0]
 
@@ -211,68 +235,64 @@ class Yer(DirectObject):
             idx+=1
 
 
+   
+
     def food_maker(self):
-        hard_limit=0
-        dx = .5
-        dy = .5
-        dz = .5
-        food = OpenSimplex(seed=random.randint(1,100000))
-        visualNPList={}
 
-        myMaterial = Material()
-        myMaterial.setShininess(5.0) #Make this material shiny
-        myMaterial.setAmbient((1, 0, 1, 1)) #Make this material blue
+            food = OpenSimplex(seed=random.randint(1,100000))
+            visualNPList={}
 
-        
-        
-        # based on approxiamate width of the landscape (hard-coded)
+            myMaterial = Material()
+            myMaterial.setShininess(5.0) #Make this material shiny
+            myMaterial.setAmbient((1, 0, 1, 1)) #Make this material blue
 
-        for i in range(-60, 61, 6):
-            for j in range(-60, 61, 6):
-                # 2d noise for scaling
-                food_scale = food.noise2d(i/50, j/50)
-                # interpolated between (0-1)
-                food_scale = interp(food_scale, (-1, 1), (0, 1))
-                chance = food_scale * np.random.randint(0, 100)
-                # made it string to keep the consisteny with population dictionary (name,[object,data])
-                food_id="Box"+str(i)+str(j)
-                if chance > 50 and hard_limit<50:
-                    hard_limit+=1
-                    shape = BulletBoxShape(Vec3(dx*food_scale*2 , dy*food_scale*2 , dz*food_scale*2))
+            
+            
+            # based on approxiamate width of the landscape (hard-coded)
+
+            for i in range(-60, 61, 12):
+                for j in range(-60, 61,12):
+                    # 2d noise for scaling
+                    food_scale = food.noise2d(i/50, j/50)
+                    # interpolated between (0-1)
+                    food_scale = interp(food_scale, (-1, 1), (0, 1))
+                    chance = food_scale * np.random.randint(0, 100)
+                    # made it string to keep the consisteny with population dictionary (name,[object,data])
+                    food_id="Box"+str(i)+str(j)                    
+                    
+                    shape = BulletBoxShape(Vec3(1, 1 , 1))
                     """this row creates a GhostNode and adds '0' as number of bite eaten by agent to a list,
-                     then put this list in a food_piece_np dictionary."""
-                    self.food_piece_np[food_id] = [self.worldNP.attachNewNode(BulletGhostNode(food_id)),0]
-                    # initial position for ghost node
-                    self.food_piece_np[food_id][0].setPos(i, j, 4)                    
-                    self.food_piece_np[food_id][0].node().setFriction(1)
+                    then put this list in a food_piece_np dictionary."""
+                    self.food_piece_np[food_id] = [self.worldNP.attachNewNode(BulletGhostNode(food_id)),"passive","location record",LVecBase3(i,j,-20)]
+                    # initial position for ghost node                 
+                    
                     self.food_piece_np[food_id][0].node().addShape(shape) 
                     # set the mask to one to prevent contact between terrain and food
                     self.food_piece_np[food_id][0].setCollideMask(BitMask32.bit(1))
                     #add node to the world
-                    self.world.attachGhost(self.food_piece_np[food_id][0].node())
-                    # get current position of the food (it is in sky)
-                    z = self.food_piece_np[food_id][0].getZ()
+                    self.world.attachGhost(self.food_piece_np[food_id][0].node())                  
+                    
                     # find terrain surface
-                    pFrom = Point3(i,j,z)
-                    pTo = Point3(i,j,z*-50)
+                    pFrom = Point3(i,j,10)
+                    pTo = Point3(i,j,(-50))
                     # this is the hit object, from food piece(cube) to ground
                     result = self.world.rayTestClosest(pFrom, pTo)
-                    # print(result.hasHit())
-                    # print(result.getHitPos())
-                    # print(result.getHitPos()[0])
-                    # print(result.getHitNormal())
-                    # print(result.getHitFraction())
-                    # print(result.getNode())                    
-                    # (dy*food_scale/2) this is for keeping food over the surfaces a bit.
-                    self.food_piece_np[food_id][0].setPos(i, j, result.getHitPos()[2]+dy*food_scale/2)
+                    # this is the future location vector of the food piece
+                    result=LVecBase3(i,j,result.getHitPos()[2]+1)
+                    # record the location
+                    self.food_piece_np[food_id][2]=result
+                    
+            
+                    #  set z to -200 
+                    self.food_piece_np[food_id][0].setPos(i,j,-20)
                     # this is the visual for the cube                     
                     visualNPList[food_id] = loader.loadModel('models/cube.gltf')
-                    visualNPList[food_id].set_scale(food_scale*2)
+                    visualNPList[food_id].set_scale(2)
 
                     visualNPList[food_id].setMaterial(myMaterial)
 
                     visualNPList[food_id].reparentTo(self.food_piece_np[food_id][0])
-                
+
 
     def toggleDebug(self):
         if self.debugNP.isHidden():
@@ -357,13 +377,13 @@ class Yer(DirectObject):
         
         return brain_list
 
-    def food_checker(self):
-        for p,r in self.food_piece_np.items():
-            # remove piece after 3rd bite
-            if r[1]>0:                
-                self.remove_agent(p,self.food_piece_np)
-                break
-            #print (type(p),p,r) 
+    # def food_checker(self):
+    #     for p,r in self.food_piece_np.items():
+    #         # remove piece after 3rd bite
+    #         if r[1]>0:                
+    #             self.food_piece_np
+    #             break
+    #         #print (type(p),p,r) 
 
 
     
@@ -371,9 +391,22 @@ class Yer(DirectObject):
 
                          
     def check_health(self,individual):
-        
-        if self.individual_age(individual)>170 or self.individual_z(individual)<-10 or self.individual_energy(individual)<0 :
-            self.remove_individual(individual,self.population)
+        if self.individual_energy(individual)>150:
+            individual[3]=150
+
+
+        if self.individual_age(individual)>(80) or self.individual_z(individual)<-10 or self.individual_energy(individual)<0 :
+            # self.remove_individual(individual,self.population)
+            print(individual)
+            individual[1].brain=self.new_brain()
+            individual[1].my_path.setPos(np.random.randint(-60, 60),
+                              np.random.randint(-60, 60), np.random.randint(1, 3))
+            individual[1].my_path.setHpr(0,0,0)
+            # #individual's energy   
+            individual[3]=50
+            individual[2]=time.perf_counter()
+
+            
 
 
     def pick_from_population(self,frame):
@@ -390,17 +423,16 @@ class Yer(DirectObject):
 
     def checker(self, task):
         """ updates every 2 seconds """
+        print(time.perf_counter())
         # print(f'{task.frame} frame')
         # print("checker")
         self.energy_burner()
-        self.food_checker()
-        if len(self.food_piece_np)<50:
-            self.food_maker()
+        
+        # self.food_checker()
+        # if len(self.food_piece_np)<30:
+            # self.food_maker()
         print(f'number of food:{len(self.food_piece_np)} ')
-        if len(self.population)<15:
-            self.agent_factory(Lillies)
-            self.agent_factory(Lillies)
-            self.agent_factory(Lillies)
+
             
 
         # print(f'food left: {len(self.food_piece_np)}')
@@ -412,6 +444,7 @@ class Yer(DirectObject):
 
 
     def update(self, task):
+        
         """ updates every frame """
         dt = globalClock.getDt()
         self.world.doPhysics(dt)
@@ -422,54 +455,24 @@ class Yer(DirectObject):
         # heartbeat of next agent
         self.individual_obj(individual).heart()
         self.check_health(individual)
-        self.num_of_individuals=len(self.population)
+
        
         # Manual agent
         agent0.heart()
         return task.cont
+
 
     def brain_save(self, task):
         
         self.save_it()
         return task.again
 
+    def thirty(self, task):
+        
+        self.arrange_food()
+        return task.again
 
-    def remove_individual(self, individual,fromhere):
-        """ this fuction removes agents and foods from environment
-        also removes relevant nodes and nodepatths(not sure about notePaths))"""
 
-        name=self.individual_name(individual)
-
-        np=self.worldNP.find(name)
-        #print(np,type(np))
-        print(f'removed agent: {name}')
-
-        if not self.worldNP.find(name).isEmpty():
-            # this is pyhon Lilly Class instance in the population dictionary
-            self.population.remove(individual)
-            
-            # this is removes PyBullet Node
-            self.world.remove(np.node())
-            # this removes nodePath.....check print statement
-            np.removeNode()
-            #print(np)
-
-    def remove_agent(self, remove_this,fromhere):
-        """ this fuction removes agents and foods from environment
-        also removes relevant nodes and nodepatths(not sure about notePaths))"""
-
-        np=self.worldNP.find(remove_this)
-        #print(np,type(np))
-        print(f'removed agent: {self.worldNP.find(remove_this)}')
-
-        if not self.worldNP.find(remove_this).isEmpty():
-            # this is pyhon Lilly Class instance in the population dictionary
-            del fromhere[remove_this]
-            # this is removes PyBullet Node
-            self.world.remove(np.node())
-            # this removes nodePath.....check print statement
-            np.removeNode()
-            #print(np)
 
 
     def agent_zero(self, fn):
@@ -486,7 +489,7 @@ class Yer(DirectObject):
         # needs to be refoctored
         # TODO not nice
         # reset age of the father (I need to think if it is right?????)
-        self.one_of_oldest_ducks()[0][3]-=50
+        
         parent_brain=self.one_of_oldest_ducks()[0][1].brain
         parent_state= copy.deepcopy(parent_brain.state_dict())
         new_model=home_made.Net()
@@ -508,12 +511,18 @@ class Yer(DirectObject):
                 node_idx=0
 
 
-                while node_idx < num_nodes:
-                    if random.random() < .02:
-                        for val in parts.weight[node_idx]:
-                            val+=np.random.normal(loc=0.001, scale=.01)
-                    node_idx+=1
                 
+                # while node_idx < num_nodes:
+                    
+                #     for val in parts.weight[node_idx]:
+                #         if random.random() < .01:
+                #             val+=np.random.normal(loc=0.001, scale=.01)
+                #     node_idx+=1
+                while node_idx < num_nodes:
+                    if random.random() < .001:
+                        for val in parts.weight[node_idx]:
+                            val+=np.random.normal(loc=0.0001, scale=.01)
+                    node_idx+=1
 
 
 
@@ -640,7 +649,7 @@ class Lillies(Yer):
         self.body_node = body_node
         my_cam.reparentTo(body_node_path)
         body_node_path.setPos(np.random.randint(-60, 60),
-                              np.random.randint(-60, 60), np.random.randint(2, 5))
+                              np.random.randint(-60, 60), np.random.randint(2, 5))      
         yer.world.attach(body_node)
 
         # removing except statement from  heart() and adding "renderFrame" may lead better performance TRY IT
@@ -676,11 +685,11 @@ class Lillies(Yer):
 
         x_Force = prediction[0][0]
         y_Force = prediction[0][1]
-        z_Force = prediction[0][2]
+        z_Force = 0 #prediction[0][2]
         z_Torque = prediction[0][3]
 
-        force = Vec3(x_Force, y_Force, z_Force)*5/30*yer.num_of_individuals
-        torque = Vec3(0, 0, z_Torque)*1/30*yer.num_of_individuals
+        force = Vec3(x_Force, y_Force, z_Force)*60
+        torque = Vec3(0, 0, z_Torque)*5
 
         force = yer.worldNP.getRelativeVector(self.my_path, force)
         torque = yer.worldNP.getRelativeVector(self.my_path, torque)
@@ -714,8 +723,8 @@ class LilliesManual(Yer):
         fb_prop.setDepthBits(16)
         # Create a WindowProperties object set to 256x256 size.
         win_prop = WindowProperties.size(128, 128)
-        flags = GraphicsPipe.BF_refuse_window
-        # flags = GraphicsPipe.BF_require_window
+        # flags = GraphicsPipe.BF_refuse_window
+        flags = GraphicsPipe.BF_require_window
 
         lens = PerspectiveLens()
         self.my_buff = base.graphicsEngine.make_output(
@@ -772,8 +781,8 @@ class LilliesManual(Yer):
             torque.setZ(-1.0)
         # Manual Lillie------------------
 
-        force *= 10*yer.num_of_individuals
-        torque *= 2*yer.num_of_individuals
+        force *= 45
+        torque *= 2
         # force=Vec3(x_Force,y_Force,0)*150
         # torque=Vec3(0,0,z_Torque)*40
 
@@ -801,14 +810,7 @@ for brain in brains:
     yer.agent_name = 'agent'+str(yer.agent_number)
 print(yer.population)
 print(len(yer.population))
-brains=home_made.model_loader()
-for brain in brains:
-    
-    agent=Lillies(yer.agent_name,brain)
-    full_stomach=50
-    yer.population.append([yer.agent_name,agent, time.perf_counter(), full_stomach])        
-    yer.agent_number += 1
-    yer.agent_name = 'agent'+str(yer.agent_number)
+
 
 
 
