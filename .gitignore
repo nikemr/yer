@@ -7,3 +7,5 @@ __pycache__/
 *.log
 imagenet/*
 sandbox/*
+yer.code-workspace
+.clj-kondo/*
